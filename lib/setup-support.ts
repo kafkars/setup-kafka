@@ -1,14 +1,19 @@
 import { writeTextAtomic } from './fs-utils.ts'
 import { runCommand, requireSuccess } from './process.ts'
 import { clientProperties } from './security.ts'
+import type { Deadline } from './deadline.ts'
+import type { EnvironmentState } from './state.ts'
 
-export async function preflight(state, deadline) {
-  const commands = [
+export async function preflight(
+  state: EnvironmentState,
+  deadline: Deadline,
+): Promise<Record<string, string>> {
+  const commands: ReadonlyArray<readonly [string, readonly string[], string]> = [
     ['docker', ['--version'], 'docker-version'],
     ['docker', ['compose', 'version', '--short'], 'compose-version'],
     ['docker', ['info', '--format', '{{json .ServerVersion}}'], 'docker-info'],
   ]
-  const tools = {}
+  const tools: Record<string, string> = {}
   for (const [command, args, key] of commands) {
     const result = await runCommand({
       command,
@@ -26,7 +31,7 @@ export async function preflight(state, deadline) {
   return tools
 }
 
-export function writeClientFiles(state) {
+export function writeClientFiles(state: EnvironmentState): void {
   const hostCa = state.caCertificate || null
   const probeCa = state.security.tls ? '/setup-kafka-evidence/ca-certificate.pem' : null
   writeTextAtomic(

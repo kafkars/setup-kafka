@@ -8,14 +8,14 @@ const defaultCaptureLimit = 1024 * 1024
 export interface RunCommandOptions {
   command: string
   args?: readonly string[]
-  cwd?: string
-  env?: NodeJS.ProcessEnv
+  cwd?: string | undefined
+  env?: NodeJS.ProcessEnv | undefined
   timeoutMs: number
-  stdin?: string | Uint8Array
-  captureLimitBytes?: number
-  operationLog?: string
-  operation?: string
-  secrets?: readonly string[]
+  stdin?: string | Uint8Array | undefined
+  captureLimitBytes?: number | undefined
+  operationLog?: string | undefined
+  operation?: string | undefined
+  secrets?: readonly string[] | undefined
 }
 
 export interface CommandResult {

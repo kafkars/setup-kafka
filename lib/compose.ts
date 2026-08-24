@@ -1,10 +1,20 @@
 import path from 'node:path'
 
 import { composeRoot } from './paths.ts'
-import { composeSecurityFile } from './security.ts'
-import { runCommand } from './process.ts'
+import { composeSecurityFile, type SecurityConfig } from './security.ts'
+import { runCommand, type CommandResult } from './process.ts'
+import type { TopologyName } from './inputs.ts'
+import type { EnvironmentState } from './state.ts'
 
-export function composeFiles(topology, security) {
+interface ComposeOptions {
+  timeoutMs: number
+  stdin?: string | Uint8Array
+  captureLimitBytes?: number
+  operation?: string
+  extraEnvironment?: NodeJS.ProcessEnv
+}
+
+export function composeFiles(topology: TopologyName, security: SecurityConfig): string[] {
   const files = [path.join(composeRoot, topology === 'single-broker' ? 'single.yml' : 'three.yml')]
   const securityFile = composeSecurityFile(security, topology)
   if (securityFile) {
@@ -13,12 +23,15 @@ export function composeFiles(topology, security) {
   return files
 }
 
-export function brokerServices(topology) {
+export function brokerServices(topology: TopologyName): string[] {
   return topology === 'single-broker' ? ['broker'] : ['broker-1', 'broker-2', 'broker-3']
 }
 
-export function composeEnvironment(state, extra = {}) {
-  const environment = {
+export function composeEnvironment(
+  state: EnvironmentState,
+  extra: NodeJS.ProcessEnv = {},
+): NodeJS.ProcessEnv {
+  const environment: NodeJS.ProcessEnv = {
     ...process.env,
     KAFKA_IMAGE: state.image,
     KAFKA_PROJECT: state.project,
@@ -42,7 +55,7 @@ export function composeEnvironment(state, extra = {}) {
   return environment
 }
 
-export function composeArgs(state, tail) {
+export function composeArgs(state: EnvironmentState, tail: readonly string[]): string[] {
   const prefix = ['compose', '--project-name', state.project]
   for (const file of state.composeFiles) {
     prefix.push('--file', file)
@@ -50,7 +63,11 @@ export function composeArgs(state, tail) {
   return [...prefix, ...tail]
 }
 
-export function runCompose(state, tail, options = {}) {
+export function runCompose(
+  state: EnvironmentState,
+  tail: readonly string[],
+  options: ComposeOptions,
+): Promise<CommandResult> {
   return runCommand({
     command: 'docker',
     args: composeArgs(state, tail),
@@ -65,10 +82,10 @@ export function runCompose(state, tail, options = {}) {
   })
 }
 
-export function firstBroker(state) {
-  return state.brokerServices[0]
+export function firstBroker(state: EnvironmentState): string {
+  return state.brokerServices[0]!
 }
 
-export function internalBootstrap() {
+export function internalBootstrap(): string {
   return 'localhost:19092'
 }
