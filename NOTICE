@@ -1,0 +1,9 @@
+kafkars/setup-kafka
+Copyright 2026 kafkars contributors
+
+Portions of the Apache Kafka environment catalog, Compose topology, security setup,
+port ownership, readiness, and evidence design were derived from kafkars/testlab
+at commit b1d609d8a43c3ab97a773a711a6e2a59a20c920a.
+
+Apache Kafka is a trademark of the Apache Software Foundation. This project is
+not an Apache Software Foundation project.

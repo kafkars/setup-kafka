@@ -1,0 +1,16 @@
+{
+  "name": "@kafkars/setup-kafka",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Digest-pinned Apache Kafka environments for GitHub Actions and local qualification.",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "check": "./scripts/check",
+    "test": "node --test test/*.test.mjs",
+    "lint": "node scripts/lint.mjs"
+  },
+  "license": "Apache-2.0"
+}

@@ -1,0 +1,5 @@
+node_modules/
+setup-kafka-evidence/
+.setup-kafka/
+*.log
+.DS_Store
