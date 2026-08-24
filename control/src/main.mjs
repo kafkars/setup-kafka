@@ -1,4 +1,4 @@
-import { controlEnvironment } from '../../lib/control.mjs'
+import { controlEnvironment } from '../../lib/control.ts'
 import { asSetupKafkaError, SetupKafkaError } from '../../lib/errors.ts'
 import { annotation, getInput, mask, setOutput } from '../../lib/github.ts'
 import { readState } from '../../lib/state.ts'

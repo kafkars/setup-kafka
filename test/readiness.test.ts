@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { topicReadinessProblem } from '../lib/readiness.mjs'
+import { topicReadinessProblem } from '../lib/readiness.ts'
 
 const expected = { name: 'orders', partitions: 2, replicationFactor: 3 }
 
@@ -13,7 +13,13 @@ Topic: orders TopicId: abc PartitionCount: 2 ReplicationFactor: 3 Configs:
 
 test('topic readiness requires leaders, replicas, and full ISR', () => {
   assert.equal(topicReadinessProblem(ready, expected), null)
-  assert.match(topicReadinessProblem(ready.replace('Leader: 2', 'Leader: -1'), expected), /leader -1/)
-  assert.match(topicReadinessProblem(ready.replace('Isr: 2,3,1', 'Isr: 2,3'), expected), /2 in-sync replicas/)
-  assert.match(topicReadinessProblem(ready.split('\n').slice(0, 3).join('\n'), expected), /1 of 2 partitions/)
+  assert.match(problem(ready.replace('Leader: 2', 'Leader: -1')), /leader -1/)
+  assert.match(problem(ready.replace('Isr: 2,3,1', 'Isr: 2,3')), /2 in-sync replicas/)
+  assert.match(problem(ready.split('\n').slice(0, 3).join('\n')), /1 of 2 partitions/)
 })
+
+function problem(output: string): string {
+  const result = topicReadinessProblem(output, expected)
+  assert.ok(result)
+  return result
+}

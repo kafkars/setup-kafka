@@ -1,11 +1,18 @@
 import { firstBroker, internalBootstrap, runCompose } from './compose.ts'
 import { runCommand, requireSuccess, redactText } from './process.ts'
 import { SetupKafkaError } from './errors.ts'
+import type { CommandResult } from './process.ts'
+import type { Deadline } from './deadline.ts'
+import type { EnvironmentState } from './state.ts'
+import type { TopicSpec } from './topics.ts'
 
 const attemptTimeoutMs = 5_000
 const retryDelayMs = 250
 
-export async function waitForBrokers(state, deadline) {
+export async function waitForBrokers(
+  state: EnvironmentState,
+  deadline: Deadline,
+): Promise<void> {
   for (const service of state.brokerServices) {
     let lastDiagnostic = 'broker API probe has not run'
     let ready = false
@@ -31,7 +38,10 @@ export async function waitForBrokers(state, deadline) {
   }
 }
 
-export async function prepareSecurity(state, deadline) {
+export async function prepareSecurity(
+  state: EnvironmentState,
+  deadline: Deadline,
+): Promise<void> {
   if (state.security.tls) {
     const result = await runCompose(state, [
       'cp', `${firstBroker(state)}:/etc/kafka/secrets/ca.pem`, state.caCertificate,
@@ -65,7 +75,10 @@ export async function prepareSecurity(state, deadline) {
   }
 }
 
-export async function waitForExternalConnection(state, deadline) {
+export async function waitForExternalConnection(
+  state: EnvironmentState,
+  deadline: Deadline,
+): Promise<void> {
   let lastDiagnostic = 'external client probe has not run'
   while (!deadline.expired()) {
     const mounts = [
@@ -100,7 +113,10 @@ export async function waitForExternalConnection(state, deadline) {
   throw new SetupKafkaError('external_readiness_failed', `external Kafka client could not connect: ${lastDiagnostic}`)
 }
 
-export async function createTopics(state, deadline) {
+export async function createTopics(
+  state: EnvironmentState,
+  deadline: Deadline,
+): Promise<void> {
   for (const topic of state.allTopics) {
     const result = await runCompose(state, [
       'exec', '--no-TTY', firstBroker(state),
@@ -118,7 +134,10 @@ export async function createTopics(state, deadline) {
   }
 }
 
-export async function waitForTopics(state, deadline) {
+export async function waitForTopics(
+  state: EnvironmentState,
+  deadline: Deadline,
+): Promise<void> {
   let lastDiagnostic = 'topic metadata has not been described'
   while (!deadline.expired()) {
     let ready = true
@@ -152,7 +171,10 @@ export async function waitForTopics(state, deadline) {
   throw new SetupKafkaError('topic_readiness_failed', `topics did not reach leader/full-ISR readiness: ${lastDiagnostic}`)
 }
 
-export async function proveIdempotentProduction(state, deadline) {
+export async function proveIdempotentProduction(
+  state: EnvironmentState,
+  deadline: Deadline,
+): Promise<void> {
   const result = await runCompose(state, [
     'exec', '--no-TTY', firstBroker(state),
     '/opt/kafka/bin/kafka-producer-perf-test.sh',
@@ -174,16 +196,19 @@ export async function proveIdempotentProduction(state, deadline) {
   requireSuccess(result, 'production_proof_failed', 'idempotent production proof', state.secrets)
 }
 
-export function topicReadinessProblem(output, expected) {
-  const partitions = new Map()
+export function topicReadinessProblem(
+  output: string,
+  expected: Pick<TopicSpec, 'name' | 'partitions' | 'replicationFactor'>,
+): string | null {
+  const partitions = new Map<number, PartitionMetadata>()
   for (const line of String(output).split(/\r?\n/)) {
     const match = line.match(/\bPartition:\s*(\d+).*?\bLeader:\s*(-?\d+).*?\bReplicas:\s*([0-9,\s]*).*?\bIsr:\s*([0-9,\s]*)/i)
     if (!match) continue
-    const partition = Number(match[1])
+    const partition = Number(match[1]!)
     partitions.set(partition, {
-      leader: Number(match[2]),
-      replicas: ids(match[3]),
-      isr: ids(match[4]),
+      leader: Number(match[2]!),
+      replicas: ids(match[3]!),
+      isr: ids(match[4]!),
     })
   }
   if (partitions.size !== expected.partitions) {
@@ -201,11 +226,17 @@ export function topicReadinessProblem(output, expected) {
   return null
 }
 
-function ids(value) {
+interface PartitionMetadata {
+  leader: number
+  replicas: string[]
+  isr: string[]
+}
+
+function ids(value: string): string[] {
   return value.split(',').map((entry) => entry.trim()).filter(Boolean)
 }
 
-function remainingAttempt(deadline) {
+function remainingAttempt(deadline: Deadline): number {
   try {
     return deadline.remainingMs(attemptTimeoutMs)
   } catch {
@@ -213,13 +244,13 @@ function remainingAttempt(deadline) {
   }
 }
 
-async function sleepWithinDeadline(deadline) {
+async function sleepWithinDeadline(deadline: Deadline): Promise<void> {
   if (!deadline.expired()) {
     await new Promise((resolve) => setTimeout(resolve, retryDelayMs))
   }
 }
 
-function diagnostic(result, secrets) {
+function diagnostic(result: CommandResult, secrets: readonly string[]): string {
   const value = result.stderr.trim() || result.stdout.trim() || 'no diagnostic'
   return redactText(value.slice(-2_000), secrets)
 }

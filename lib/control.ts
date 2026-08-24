@@ -2,17 +2,30 @@ import { runCompose } from './compose.ts'
 import { Deadline } from './deadline.ts'
 import { SetupKafkaError } from './errors.ts'
 import { requireSuccess } from './process.ts'
-import { waitForBrokers, waitForTopics } from './readiness.mjs'
+import { waitForBrokers, waitForTopics } from './readiness.ts'
+import type { EnvironmentState } from './state.ts'
 
-export const controlOperations = Object.freeze([
+export const controlOperations = [
   'restart',
   'pause',
   'unpause',
   'rolling-restart',
-])
+] as const
 
-export async function controlEnvironment(state, operation, broker, timeoutMs = 60_000) {
-  if (!controlOperations.includes(operation)) {
+export type ControlOperation = (typeof controlOperations)[number]
+
+export interface ControlResult {
+  operation: ControlOperation
+  brokers: string[]
+}
+
+export async function controlEnvironment(
+  state: EnvironmentState,
+  operation: string,
+  broker: string,
+  timeoutMs = 60_000,
+): Promise<ControlResult> {
+  if (!isControlOperation(operation)) {
     throw new SetupKafkaError('control_operation_invalid', `operation must be one of: ${controlOperations.join(', ')}`)
   }
   const deadline = new Deadline(timeoutMs, `control ${operation}`)
@@ -38,13 +51,23 @@ export async function controlEnvironment(state, operation, broker, timeoutMs = 6
   return { operation, brokers: [service] }
 }
 
-async function restart(state, service, deadline) {
+async function restart(
+  state: EnvironmentState,
+  service: string,
+  deadline: Deadline,
+): Promise<void> {
   await simple(state, ['restart', '--no-deps', service], deadline, 'broker-restart', `restart ${service}`)
   await waitForBrokers(state, deadline)
   await waitForTopics(state, deadline)
 }
 
-async function simple(state, args, deadline, operation, label) {
+async function simple(
+  state: EnvironmentState,
+  args: readonly string[],
+  deadline: Deadline,
+  operation: string,
+  label: string,
+): Promise<void> {
   const result = await runCompose(state, args, {
     timeoutMs: deadline.remainingMs(30_000),
     operation: `${operation}-${args.at(-1)}`,
@@ -52,10 +75,14 @@ async function simple(state, args, deadline, operation, label) {
   requireSuccess(result, 'control_failed', label, state.secrets)
 }
 
-function resolveBroker(state, requested) {
-  const broker = requested || state.brokerServices[0]
+function resolveBroker(state: EnvironmentState, requested: string): string {
+  const broker = requested || state.brokerServices[0]!
   if (!state.brokerServices.includes(broker)) {
     throw new SetupKafkaError('control_broker_invalid', `broker must be one of: ${state.brokerServices.join(', ')}`)
   }
   return broker
+}
+
+function isControlOperation(operation: string): operation is ControlOperation {
+  return controlOperations.includes(operation as ControlOperation)
 }

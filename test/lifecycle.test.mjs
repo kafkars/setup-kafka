@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 
-import { controlEnvironment } from '../lib/control.mjs'
+import { controlEnvironment } from '../lib/control.ts'
 import { createEnvironment, finishEnvironment, startEnvironment } from '../lib/lifecycle.mjs'
 import { normalizeInputs } from '../lib/inputs.ts'
 import { fakeDocker } from './support/fake-docker.mjs'

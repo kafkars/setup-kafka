@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import { supportedVersions, resolveImage } from '../lib/catalog.ts'
-import { controlEnvironment, controlOperations } from '../lib/control.mjs'
+import { controlEnvironment, controlOperations } from '../lib/control.ts'
 import { asSetupKafkaError, SetupKafkaError } from '../lib/errors.ts'
 import { normalizeInputs, requireLinuxRunner, topologyNames } from '../lib/inputs.ts'
 import { publicOutputs } from '../lib/outputs.mjs'
