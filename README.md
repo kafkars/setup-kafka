@@ -41,9 +41,9 @@ See [`action.yml`](action.yml) for all inputs and outputs. The bundled
 ## Local use
 
 ```bash
-node bin/setup-kafka.mjs catalog
-node bin/setup-kafka.mjs up --version 4.3.1
-node bin/setup-kafka.mjs down --state <state-file>
+node bin/setup-kafka.ts catalog
+node bin/setup-kafka.ts up --version 4.3.1
+node bin/setup-kafka.ts down --state <state-file>
 ```
 
 Local environments require Linux, Docker Engine, Docker Compose v2, and Node 24.

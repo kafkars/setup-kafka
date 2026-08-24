@@ -16,6 +16,9 @@ import {
 import { securityNames } from '../lib/security.ts'
 import { readState } from '../lib/state.ts'
 import { parseTopics } from '../lib/topics.ts'
+import type { Inputs } from '../lib/inputs.ts'
+
+type Options = Record<string, string>
 
 const [command = 'help', ...rest] = process.argv.slice(2)
 try {
@@ -52,7 +55,7 @@ try {
   process.exitCode = 1
 }
 
-async function up(options) {
+async function up(options: Options): Promise<void> {
   requireLinuxRunner()
   const inputs = localInputs(options)
   const created = await createEnvironment(inputs)
@@ -68,14 +71,14 @@ async function up(options) {
   }
 }
 
-async function down(options) {
+async function down(options: Options): Promise<void> {
   const state = readState(requiredOption(options, 'state'))
   state.cleanup = true
   const result = await finishEnvironment(state)
   print(result)
 }
 
-function status(options) {
+function status(options: Options): void {
   const state = readState(requiredOption(options, 'state'))
   print({
     stateFile: state.stateFile,
@@ -89,7 +92,7 @@ function status(options) {
   })
 }
 
-async function control(options) {
+async function control(options: Options): Promise<void> {
   const state = readState(requiredOption(options, 'state'))
   const operation = requiredOption(options, 'operation')
   const timeout = parseInteger(options['timeout-seconds'] || '60', 'timeout-seconds') * 1_000
@@ -97,10 +100,11 @@ async function control(options) {
   print(result)
 }
 
-function localInputs(options) {
+function localInputs(options: Options): Inputs {
   const workspace = path.resolve(options.workspace || process.cwd())
-  const topics = options['topics-file']
-    ? fs.readFileSync(path.resolve(workspace, options['topics-file']), 'utf8')
+  const topicsFile = options['topics-file']
+  const topics = topicsFile
+    ? fs.readFileSync(path.resolve(workspace, topicsFile), 'utf8')
     : options.topics || ''
   return normalizeInputs({
     version: requiredOption(options, 'version'),
@@ -118,14 +122,17 @@ function localInputs(options) {
   })
 }
 
-function parseOptions(args) {
-  const options = {}
+function parseOptions(args: readonly string[]): Options {
+  const options: Options = {}
   for (let index = 0; index < args.length; index += 1) {
-    const token = args[index]
+    const token = args[index]!
     if (!token.startsWith('--')) {
       throw new SetupKafkaError('option_invalid', `expected an option, got ${token}`)
     }
-    const [name, inline] = token.slice(2).split('=', 2)
+    const [name = '', inline] = token.slice(2).split('=', 2)
+    if (!name) {
+      throw new SetupKafkaError('option_invalid', 'option name must not be empty')
+    }
     if (inline !== undefined) {
       options[name] = inline
       continue
@@ -141,21 +148,21 @@ function parseOptions(args) {
   return options
 }
 
-function requiredOption(options, name) {
+function requiredOption(options: Options, name: string): string {
   const value = String(options[name] || '').trim()
   if (!value) throw new SetupKafkaError('option_missing', `--${name} is required`)
   return value
 }
 
-function parseInteger(value, name) {
+function parseInteger(value: string, name: string): number {
   if (!/^\d+$/.test(value)) throw new SetupKafkaError('option_invalid', `--${name} must be an integer`)
   return Number(value)
 }
 
-function print(value) {
+function print(value: unknown): void {
   process.stdout.write(`${JSON.stringify(value, null, 2)}\n`)
 }
 
-function help() {
+function help(): string {
   return `setup-kafka\n\nCommands:\n  catalog\n  plan --version VERSION [--topology NAME] [--security NAME]\n  up --version VERSION [--topology NAME] [--security NAME] [--topics-file FILE]\n  status --state FILE\n  down --state FILE\n  control --state FILE --operation ${controlOperations.join('|')} [--broker NAME]\n\nThe up command keeps the cluster running and prints its private state file.\nThe down command captures evidence and removes all owned Compose resources.\n`
 }

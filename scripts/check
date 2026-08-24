@@ -7,8 +7,8 @@ cd "$root"
 node scripts/lint.mjs
 node --run typecheck
 node --test test/*.test.*
-node bin/setup-kafka.mjs catalog >/dev/null
-node bin/setup-kafka.mjs plan \
+node bin/setup-kafka.ts catalog >/dev/null
+node bin/setup-kafka.ts plan \
   --version 4.3.1 \
   --topology three-broker \
   --security scram-sha-512 \
