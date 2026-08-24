@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "implementation": "apache-kafka",
+  "imageRepository": "apache/kafka",
+  "extractedFrom": {
+    "repository": "kafkars/testlab",
+    "commit": "b1d609d8a43c3ab97a773a711a6e2a59a20c920a"
+  },
+  "versions": {
+    "3.7.2": "sha256:8bd63e1bd445e5e19427a4bdbcc3d23bf6efd774b058a41b36ba87fda7623e34",
+    "3.8.1": "sha256:22c4bea38875408e8f9fe52aca8e3a6ee67f9aa0090db59af99a2f6647558db5",
+    "3.9.2": "sha256:05b4616e0702ef2729327705d54ad6b50ea70b271c4b730fabd2320789fb7b02",
+    "4.0.2": "sha256:836cafdad9f4825880d7cf1d5a21202915ae2527bd0ef1c3600c526ed7814d1f",
+    "4.1.2": "sha256:5cc2a2fd93fa2687b44015eee04fb2c3edd9e526bd64bf8bec5ff1e268772e0e",
+    "4.2.1": "sha256:9916d60eca5d599550e2c320230808fda342124ba550bb4ac4ea8591803262a0",
+    "4.3.1": "sha256:77e3df9054047a88b520d0cc46e16696d3b22022e1d580aeccd2632df6532837"
+  }
+}
