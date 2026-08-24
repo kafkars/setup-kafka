@@ -52,5 +52,6 @@ This project is for tests and qualification, not production deployment.
 ## Development
 
 ```bash
+npm ci --ignore-scripts
 ./scripts/check
 ```
