@@ -1,0 +1,86 @@
+name: release qualification
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: repository contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Run the repository check
+        run: ./scripts/check
+
+  qualification:
+    name: ${{ matrix.version }} / ${{ matrix.topology }} / ${{ matrix.security }}
+    needs: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 12
+      matrix:
+        version: [3.7.2, 3.8.1, 3.9.2, 4.0.2, 4.1.2, 4.2.1, 4.3.1]
+        topology: [single-broker, three-broker]
+        security: [plaintext, tls, sasl-plain, scram-sha-256, scram-sha-512]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Set up Kafka
+        id: kafka
+        uses: ./
+        with:
+          version: ${{ matrix.version }}
+          topology: ${{ matrix.topology }}
+          security: ${{ matrix.security }}
+          topics: release-qualification:6
+      - name: Snapshot evidence
+        if: always() && steps.kafka.outputs.state-file != ''
+        id: snapshot
+        uses: ./snapshot
+        with:
+          state-file: ${{ steps.kafka.outputs.state-file }}
+          name: release
+      - name: Upload failed evidence
+        if: failure() && steps.snapshot.outputs.evidence-archive != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          path: ${{ steps.snapshot.outputs.evidence-archive }}
+          archive: false
+
+  publish-release:
+    name: publish GitHub release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [check, qualification]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Check out tagged repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+      - name: Verify signed tag object and publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ref="repos/$GITHUB_REPOSITORY/git/ref/tags/$GITHUB_REF_NAME"
+          tag_type="$(gh api "$ref" --jq '.object.type')"
+          tag_sha="$(gh api "$ref" --jq '.object.sha')"
+          test "$tag_type" = tag
+          verified="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_sha" --jq '.verification.verified')"
+          test "$verified" = true
+          gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes --title "$GITHUB_REF_NAME"

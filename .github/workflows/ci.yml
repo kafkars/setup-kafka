@@ -1,0 +1,126 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: repository contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Run the repository check
+        run: ./scripts/check
+
+  smoke:
+    name: ${{ matrix.name }}
+    needs: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: single plaintext
+            slug: single-plaintext
+            topology: single-broker
+            security: plaintext
+          - name: three broker plaintext
+            slug: three-plaintext
+            topology: three-broker
+            security: plaintext
+          - name: single TLS
+            slug: single-tls
+            topology: single-broker
+            security: tls
+          - name: single SCRAM-512
+            slug: single-scram-512
+            topology: single-broker
+            security: scram-sha-512
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Set up Kafka
+        id: kafka
+        uses: ./
+        with:
+          version: 4.3.1
+          topology: ${{ matrix.topology }}
+          security: ${{ matrix.security }}
+          topics: |
+            ci-orders:3
+            ci-payments:2
+      - name: Verify public contract
+        env:
+          MANIFEST: ${{ steps.kafka.outputs.evidence-directory }}/manifest.json
+          CLIENT_PROPERTIES: ${{ steps.kafka.outputs.client-properties }}
+        run: |
+          test -s "$MANIFEST"
+          test -s "$CLIENT_PROPERTIES"
+          node -e 'const m=require(process.env.MANIFEST); if (m.version!=="4.3.1") process.exit(1)'
+      - name: Snapshot test-time evidence
+        if: always() && steps.kafka.outputs.state-file != ''
+        id: snapshot
+        uses: ./snapshot
+        with:
+          state-file: ${{ steps.kafka.outputs.state-file }}
+          name: ci-${{ matrix.slug }}
+      - name: Upload evidence
+        if: always() && steps.snapshot.outputs.evidence-archive != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          path: ${{ steps.snapshot.outputs.evidence-archive }}
+          archive: false
+          if-no-files-found: error
+
+  controls:
+    name: fault controls
+    if: github.event_name == 'push'
+    needs: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Set up three-broker Kafka
+        id: kafka
+        uses: ./
+        with:
+          version: 4.3.1
+          topology: three-broker
+          security: scram-sha-512
+          topics: controls:6:3
+      - name: Restart broker 2
+        uses: ./control
+        with:
+          state-file: ${{ steps.kafka.outputs.state-file }}
+          operation: restart
+          broker: broker-2
+      - name: Pause broker 3
+        uses: ./control
+        with:
+          state-file: ${{ steps.kafka.outputs.state-file }}
+          operation: pause
+          broker: broker-3
+      - name: Recover broker 3
+        uses: ./control
+        with:
+          state-file: ${{ steps.kafka.outputs.state-file }}
+          operation: unpause
+          broker: broker-3
+      - name: Rolling restart
+        uses: ./control
+        with:
+          state-file: ${{ steps.kafka.outputs.state-file }}
+          operation: rolling-restart

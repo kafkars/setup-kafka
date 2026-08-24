@@ -1,0 +1,68 @@
+name: nightly qualification
+
+on:
+  schedule:
+    - cron: '17 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-qualification
+  cancel-in-progress: false
+
+jobs:
+  version-lanes:
+    name: Kafka ${{ matrix.version }} / ${{ matrix.lane }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [3.7.2, 3.8.1, 3.9.2, 4.0.2, 4.1.2, 4.2.1, 4.3.1]
+        lane: [single-plaintext, three-scram]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Set up Kafka
+        id: kafka
+        uses: ./
+        with:
+          version: ${{ matrix.version }}
+          topology: ${{ matrix.lane == 'single-plaintext' && 'single-broker' || 'three-broker' }}
+          security: ${{ matrix.lane == 'single-plaintext' && 'plaintext' || 'scram-sha-512' }}
+          topics: nightly:3
+      - name: Snapshot evidence
+        if: always() && steps.kafka.outputs.state-file != ''
+        id: snapshot
+        uses: ./snapshot
+        with:
+          state-file: ${{ steps.kafka.outputs.state-file }}
+          name: nightly
+      - name: Upload failed evidence
+        if: failure() && steps.snapshot.outputs.evidence-archive != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          path: ${{ steps.snapshot.outputs.evidence-archive }}
+          archive: false
+
+  latest-matrix:
+    name: 4.3.1 / ${{ matrix.topology }} / ${{ matrix.security }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        topology: [single-broker, three-broker]
+        security: [plaintext, tls, sasl-plain, scram-sha-256, scram-sha-512]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Set up Kafka
+        uses: ./
+        with:
+          version: 4.3.1
+          topology: ${{ matrix.topology }}
+          security: ${{ matrix.security }}
+          topics: nightly-latest:4

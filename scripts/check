@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$root"
+
+node scripts/lint.mjs
+node --test test/*.test.mjs
+node bin/setup-kafka.mjs catalog >/dev/null
+node bin/setup-kafka.mjs plan \
+  --version 4.3.1 \
+  --topology three-broker \
+  --security scram-sha-512 \
+  --topics $'orders:6:3\npayments:3:3' >/dev/null
