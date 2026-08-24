@@ -67,6 +67,10 @@ for (const lane of lanes) {
       assert.equal(fs.existsSync(created.state.privateDirectory), false)
       const fakeState = JSON.parse(fs.readFileSync(fakeStateFile, 'utf8')) as { calls: string[][] }
       assert.ok(fakeState.calls.some((args) => args.includes('down')))
+      const externalProbe = fakeState.calls.find((args) => args[0] === 'run')
+      assert.ok(externalProbe)
+      const userIndex = externalProbe.indexOf('--user')
+      assert.equal(externalProbe[userIndex + 1], `${process.getuid?.()}:${process.getgid?.()}`)
     } finally {
       process.env.PATH = previousPath
       if (previousState === undefined) delete process.env.FAKE_DOCKER_STATE

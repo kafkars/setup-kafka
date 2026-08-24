@@ -91,6 +91,7 @@ export async function waitForExternalConnection(
       command: 'docker',
       args: [
         'run', '--rm', '--network', 'host',
+        '--user', hostIdentity(),
         ...mounts,
         '--entrypoint', '/opt/kafka/bin/kafka-broker-api-versions.sh',
         state.image,
@@ -242,6 +243,13 @@ function remainingAttempt(deadline: Deadline): number {
   } catch {
     return 1
   }
+}
+
+function hostIdentity(): string {
+  if (typeof process.getuid !== 'function' || typeof process.getgid !== 'function') {
+    throw new SetupKafkaError('runner_unsupported', 'external readiness requires a POSIX host identity')
+  }
+  return `${process.getuid()}:${process.getgid()}`
 }
 
 async function sleepWithinDeadline(deadline: Deadline): Promise<void> {
