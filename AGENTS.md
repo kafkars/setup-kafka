@@ -27,7 +27,7 @@ client qualification verdicts, scenario semantics, or production deployment.
 
 - Shared behavior belongs in `lib/`; Action entrypoints remain thin.
 - Tests live in `test/`, never beside implementation.
-- JavaScript source files remain at or below 300 lines.
+- TypeScript source files remain at or below 300 lines.
 - Runtime and development npm dependencies remain empty unless a concrete
   capability justifies the supply-chain cost.
 - Run `./scripts/check` before handing off a change.

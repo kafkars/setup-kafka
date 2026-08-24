@@ -5,12 +5,13 @@ import path from 'node:path'
 import { loadCatalog } from '../lib/catalog.ts'
 import { repositoryRoot } from '../lib/paths.ts'
 
-const failures = []
+const failures: string[] = []
 const sourceRoots = ['lib', 'src', 'bin', 'control/src', 'snapshot/src', 'scripts', 'test']
-const sourceFiles = sourceRoots.flatMap((root) => [
-  ...files(path.join(repositoryRoot, root), '.mjs'),
-  ...files(path.join(repositoryRoot, root), '.ts'),
-]).sort()
+const sourceFiles = sourceRoots.flatMap((root) => files(path.join(repositoryRoot, root), '.ts'))
+const javascriptFiles = sourceRoots.flatMap((root) => files(path.join(repositoryRoot, root), '.mjs'))
+for (const file of javascriptFiles) {
+  fail(`${path.relative(repositoryRoot, file)} must be migrated to TypeScript`)
+}
 
 for (const file of sourceFiles) {
   const relative = path.relative(repositoryRoot, file)
@@ -19,7 +20,7 @@ for (const file of sourceFiles) {
   if (lines > 300) fail(`${relative} has ${lines} lines; maximum is 300`)
   const syntax = spawnSync(process.execPath, ['--check', file], { encoding: 'utf8' })
   if (syntax.status !== 0) fail(`${relative} failed node --check: ${syntax.stderr.trim()}`)
-  if (relative !== 'scripts/lint.mjs') {
+  if (relative !== 'scripts/lint.ts') {
     for (const forbidden of ['TODO', 'FIXME', 'shell: true', 'eval(', 'child_process.exec']) {
       if (text.includes(forbidden)) fail(`${relative} contains forbidden token ${JSON.stringify(forbidden)}`)
     }
@@ -76,8 +77,9 @@ for (const workflow of files(path.join(repositoryRoot, '.github', 'workflows'), 
   const relative = path.relative(repositoryRoot, workflow)
   for (const line of fs.readFileSync(workflow, 'utf8').split(/\r?\n/)) {
     const match = line.match(/\buses:\s*([^\s#]+)/)
-    if (!match || match[1].startsWith('./')) continue
-    if (!/@[0-9a-f]{40}$/.test(match[1])) fail(`${relative} has mutable action reference ${match[1]}`)
+    const reference = match?.[1]
+    if (!reference || reference.startsWith('./')) continue
+    if (!/@[0-9a-f]{40}$/.test(reference)) fail(`${relative} has mutable action reference ${reference}`)
   }
 }
 
@@ -88,13 +90,13 @@ if (failures.length > 0) {
   process.stdout.write(`lint: ${sourceFiles.length} source modules and repository contracts passed\n`)
 }
 
-function read(relative) {
+function read(relative: string): string {
   return fs.readFileSync(path.join(repositoryRoot, relative), 'utf8')
 }
 
-function files(root, extension) {
+function files(root: string, extension: string): string[] {
   if (!fs.existsSync(root)) return []
-  const result = []
+  const result: string[] = []
   for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
     const file = path.join(root, entry.name)
     if (entry.isDirectory()) result.push(...files(file, extension))
@@ -103,6 +105,6 @@ function files(root, extension) {
   return result.sort()
 }
 
-function fail(message) {
+function fail(message: string): void {
   failures.push(message)
 }

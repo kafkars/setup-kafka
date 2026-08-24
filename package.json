@@ -10,7 +10,7 @@
   "scripts": {
     "check": "./scripts/check",
     "test": "node --test test/*.test.*",
-    "lint": "node scripts/lint.mjs",
+    "lint": "node scripts/lint.ts",
     "typecheck": "tsc --noEmit"
   },
   "license": "Apache-2.0",

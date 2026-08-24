@@ -4,7 +4,7 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
 
-node scripts/lint.mjs
+node scripts/lint.ts
 node --run typecheck
 node --test test/*.test.*
 node bin/setup-kafka.ts catalog >/dev/null
