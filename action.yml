@@ -1,0 +1,86 @@
+name: Set up Apache Kafka
+description: 'Start an exact, digest-pinned Apache Kafka environment with real readiness, security, evidence, and cleanup.'
+author: kafkars
+
+inputs:
+  version:
+    description: 'Exact Apache Kafka patch version from the compatibility catalog. Floating values such as latest are rejected.'
+    required: true
+  topology:
+    description: 'Cluster topology: single-broker or three-broker.'
+    required: false
+    default: single-broker
+  security:
+    description: 'Security preset: plaintext, tls, sasl-plain, scram-sha-256, or scram-sha-512.'
+    required: false
+    default: plaintext
+  topics:
+    description: 'Multiline topic declarations in name[:partitions[:replication-factor]] form.'
+    required: false
+    default: ""
+  startup-timeout-seconds:
+    description: 'Absolute timeout covering image pull, startup, security setup, topic creation, and readiness.'
+    required: false
+    default: "240"
+  cleanup-timeout-seconds:
+    description: 'Absolute timeout for final diagnostics and Docker Compose cleanup.'
+    required: false
+    default: "60"
+  evidence-directory:
+    description: 'Directory for non-secret environment evidence. Relative paths resolve from GITHUB_WORKSPACE.'
+    required: false
+    default: setup-kafka-evidence
+  compose-project:
+    description: 'Optional Docker Compose project name. A unique bounded name is generated when omitted.'
+    required: false
+    default: ""
+  cleanup:
+    description: 'Remove containers, networks, and volumes in the post-job phase.'
+    required: false
+    default: "true"
+  declare-evidence:
+    description: 'Declare non-secret evidence files through GITHUB_ARTIFACTS when the runner supports it.'
+    required: false
+    default: "true"
+
+outputs:
+  bootstrap-servers:
+    description: 'Comma-separated loopback broker endpoints.'
+  security-protocol:
+    description: 'Kafka security.protocol value.'
+  sasl-mechanism:
+    description: 'Kafka sasl.mechanism value, or empty when SASL is disabled.'
+  username:
+    description: 'Ephemeral SASL username, or empty when authentication is disabled.'
+  password:
+    description: 'Masked ephemeral SASL password, or empty when authentication is disabled.'
+  ca-certificate:
+    description: 'Absolute PEM CA path for TLS, or empty when TLS is disabled.'
+  client-certificate:
+    description: 'Absolute client certificate path. Empty in v0.1 because TLS is server-authenticated.'
+  client-key:
+    description: 'Absolute client key path. Empty in v0.1 because TLS is server-authenticated.'
+  client-properties:
+    description: 'Absolute mode-0600 Kafka client properties file.'
+  compose-project:
+    description: 'Isolated Docker Compose project name.'
+  state-file:
+    description: 'Private lifecycle state path for the bundled control sub-action.'
+  evidence-directory:
+    description: 'Absolute directory containing non-secret setup and cleanup evidence.'
+  evidence-archive:
+    description: 'Absolute path to the ready-state non-secret tar archive available to later workflow steps.'
+  final-evidence-archive:
+    description: 'Absolute path to the final post-job evidence archive.'
+  image:
+    description: 'Exact digest-pinned Apache Kafka image reference.'
+
+runs:
+  using: node24
+  main: src/main.mjs
+  post: src/post.mjs
+  post-if: always()
+
+branding:
+  icon: database
+  color: orange

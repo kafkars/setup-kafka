@@ -1,0 +1,33 @@
+name: Control setup-kafka environment
+description: 'Apply a bounded broker lifecycle fault to an environment created by kafkars/setup-kafka.'
+author: kafkars
+
+inputs:
+  state-file:
+    description: 'Private state-file output from the setup-kafka step.'
+    required: true
+  operation:
+    description: 'Control operation: restart, pause, unpause, or rolling-restart.'
+    required: true
+  broker:
+    description: 'Broker service name. Omit for the first broker or for rolling-restart.'
+    required: false
+    default: ""
+  timeout-seconds:
+    description: 'Absolute control and recovery timeout.'
+    required: false
+    default: "60"
+
+outputs:
+  operation:
+    description: 'Completed operation.'
+  brokers:
+    description: 'Comma-separated broker services affected.'
+
+runs:
+  using: node24
+  main: src/main.mjs
+
+branding:
+  icon: activity
+  color: orange

@@ -1,0 +1,34 @@
+name: Snapshot setup-kafka evidence
+description: 'Capture bounded broker diagnostics and create an uploadable evidence archive before post-job cleanup.'
+author: kafkars
+
+inputs:
+  state-file:
+    description: 'Private state-file output from the setup-kafka step.'
+    required: true
+  name:
+    description: 'Bounded archive suffix. Use a unique value for each snapshot in one job.'
+    required: false
+    default: snapshot
+  timeout-seconds:
+    description: 'Absolute diagnostic capture timeout.'
+    required: false
+    default: "30"
+  declare-evidence:
+    description: 'Declare the snapshot through GITHUB_ARTIFACTS when supported.'
+    required: false
+    default: "true"
+
+outputs:
+  evidence-archive:
+    description: 'Absolute deterministic tar archive path.'
+  evidence-digest:
+    description: 'SHA-256 digest of the archive.'
+
+runs:
+  using: node24
+  main: src/main.mjs
+
+branding:
+  icon: archive
+  color: orange
