@@ -2,11 +2,72 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import { ensureDirectory, regularFiles, relativeUnix, sha256File, writeJsonAtomic, writeTextAtomic } from './fs-utils.ts'
-import { declareArtifacts } from './github.mjs'
+import { declareArtifacts } from './github.ts'
 import { redactText } from './process.ts'
 import { SetupKafkaError } from './errors.ts'
+import type { CatalogSource } from './catalog.ts'
+import type { TopologyName } from './inputs.ts'
+import type { SecurityName } from './security.ts'
+import type { TopicSpec } from './topics.ts'
 
-export function prepareEvidence(state) {
+interface EvidenceSecurity {
+  name: SecurityName
+  securityProtocol: string
+  saslMechanism: string
+  username: string
+  password: string
+}
+
+export interface EvidenceState {
+  actionVersion: string
+  createdAt: string
+  project: string
+  implementation: 'apache-kafka'
+  version: string
+  image: string
+  imageDigest: string
+  extractedFrom: CatalogSource
+  topology: TopologyName
+  clusterSize: 1 | 3
+  security: EvidenceSecurity
+  bootstrapServers: string
+  brokerServices: readonly string[]
+  userTopics: readonly TopicSpec[]
+  readinessTopic: string
+  startupTimeoutMs: number
+  cleanupTimeoutMs: number
+  clientProperties: string
+  caCertificate: string
+  evidenceDirectory: string
+  evidenceArchive: string
+  manifestFile: string
+  connectionFile: string
+  statusFile: string
+  operationLog: string
+  checksumFile: string
+  composeConfigFile: string
+  secrets: readonly string[]
+  declareEvidence: boolean
+}
+
+interface FinalEvidenceStatus {
+  phase: string
+  diagnostic: string | null
+  extra: Readonly<Record<string, unknown>>
+}
+
+interface FinalEvidenceOptions {
+  archive?: string
+  declare?: boolean
+}
+
+export interface FinalEvidenceResult {
+  files: string[]
+  archive: string
+  archiveDigest: string
+}
+
+export function prepareEvidence(state: EvidenceState): void {
   if (fs.existsSync(state.evidenceDirectory) && fs.readdirSync(state.evidenceDirectory).length > 0) {
     throw new SetupKafkaError('evidence_directory_not_empty', `evidence directory is not empty: ${state.evidenceDirectory}`)
   }
@@ -17,7 +78,12 @@ export function prepareEvidence(state) {
   updateEvidenceStatus(state, 'prepared')
 }
 
-export function writeSanitized(file, content, state, mode = 0o644) {
+export function writeSanitized(
+  file: string,
+  content: unknown,
+  state: Pick<EvidenceState, 'secrets'>,
+  mode = 0o644,
+): void {
   const redacted = redactText(content, state.secrets)
   for (const secret of state.secrets) {
     if (secret && redacted.includes(secret)) {
@@ -27,7 +93,12 @@ export function writeSanitized(file, content, state, mode = 0o644) {
   writeTextAtomic(file, redacted, mode)
 }
 
-export function updateEvidenceStatus(state, phase, diagnostic = null, extra = {}) {
+export function updateEvidenceStatus(
+  state: Pick<EvidenceState, 'statusFile' | 'secrets'>,
+  phase: string,
+  diagnostic: string | null = null,
+  extra: Readonly<Record<string, unknown>> = {},
+): void {
   writeJsonAtomic(state.statusFile, {
     schemaVersion: 1,
     phase,
@@ -37,7 +108,11 @@ export function updateEvidenceStatus(state, phase, diagnostic = null, extra = {}
   }, 0o644)
 }
 
-export function finalizeEvidence(state, finalStatus, options = {}) {
+export function finalizeEvidence(
+  state: EvidenceState,
+  finalStatus: FinalEvidenceStatus,
+  options: FinalEvidenceOptions = {},
+): FinalEvidenceResult {
   updateEvidenceStatus(state, finalStatus.phase, finalStatus.diagnostic, finalStatus.extra)
   const checksumFile = state.checksumFile
   const excluded = new Set([checksumFile])
@@ -56,7 +131,7 @@ export function finalizeEvidence(state, finalStatus, options = {}) {
   }
 }
 
-function manifest(state) {
+function manifest(state: EvidenceState): Readonly<Record<string, unknown>> {
   return {
     schemaVersion: 1,
     actionVersion: state.actionVersion,
@@ -97,7 +172,7 @@ function manifest(state) {
   }
 }
 
-function connection(state) {
+function connection(state: EvidenceState): Readonly<Record<string, unknown>> {
   return {
     schemaVersion: 1,
     bootstrapServers: state.bootstrapServers,
@@ -112,7 +187,7 @@ function connection(state) {
   }
 }
 
-function writeTarArchive(directory, archive) {
+function writeTarArchive(directory: string, archive: string): void {
   ensureDirectory(path.dirname(archive), 0o700)
   const descriptor = fs.openSync(archive, 'w', 0o644)
   try {
@@ -132,7 +207,7 @@ function writeTarArchive(directory, archive) {
   }
 }
 
-function tarHeader(name, size, mode) {
+function tarHeader(name: string, size: number, mode: number): Buffer {
   const header = Buffer.alloc(512)
   const { basename, prefix } = splitTarName(name)
   Buffer.from(basename).copy(header, 0)
@@ -154,11 +229,13 @@ function tarHeader(name, size, mode) {
   return header
 }
 
-function splitTarName(name) {
+function splitTarName(name: string): { basename: string; prefix: string } {
   if (Buffer.byteLength(name) <= 100) {
     return { basename: name, prefix: '' }
   }
-  const separators = [...name.matchAll(/\//g)].map((match) => match.index)
+  const separators = [...name.matchAll(/\//g)].flatMap((match) =>
+    match.index === undefined ? [] : [match.index]
+  )
   for (const separator of separators.reverse()) {
     const prefix = name.slice(0, separator)
     const basename = name.slice(separator + 1)
@@ -169,7 +246,7 @@ function splitTarName(name) {
   throw new SetupKafkaError('evidence_archive_path_too_long', `tar path cannot be represented in ustar: ${name}`)
 }
 
-function octal(buffer, offset, length, value) {
+function octal(buffer: Buffer, offset: number, length: number, value: number): void {
   const text = value.toString(8).padStart(length - 1, '0') + '\0'
   Buffer.from(text).copy(buffer, offset)
 }

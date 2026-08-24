@@ -1,7 +1,7 @@
 import os from 'node:os'
 import path from 'node:path'
 
-import { getInput } from './github.mjs'
+import { getInput } from './github.ts'
 import { SetupKafkaError } from './errors.ts'
 import { securityNames, type SecurityName } from './security.ts'
 

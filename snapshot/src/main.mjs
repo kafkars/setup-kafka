@@ -1,10 +1,10 @@
 import path from 'node:path'
 
 import { Deadline } from '../../lib/deadline.ts'
-import { finalizeEvidence } from '../../lib/evidence.mjs'
+import { finalizeEvidence } from '../../lib/evidence.ts'
 import { asSetupKafkaError, SetupKafkaError } from '../../lib/errors.ts'
-import { annotation, getInput, mask, setOutput } from '../../lib/github.mjs'
-import { captureDiagnostics } from '../../lib/diagnostics.mjs'
+import { annotation, getInput, mask, setOutput } from '../../lib/github.ts'
+import { captureDiagnostics } from '../../lib/diagnostics.ts'
 import { readState } from '../../lib/state.ts'
 
 try {

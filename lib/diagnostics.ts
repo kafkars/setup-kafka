@@ -1,10 +1,15 @@
 import { runCompose } from './compose.ts'
-import { writeSanitized } from './evidence.mjs'
+import { writeSanitized } from './evidence.ts'
 import { asSetupKafkaError } from './errors.ts'
 import { redactText } from './process.ts'
+import type { Deadline } from './deadline.ts'
+import type { EnvironmentState } from './state.ts'
 
-export async function captureDiagnostics(state, deadline) {
-  const issues = []
+export async function captureDiagnostics(
+  state: EnvironmentState,
+  deadline: Deadline,
+): Promise<string[]> {
+  const issues: string[] = []
   await capture('compose ps', state.composePsFile, ['ps', '--all', '--format', 'json'], 10_000, 2 * 1024 * 1024)
   await capture(
     'broker logs',
@@ -15,7 +20,13 @@ export async function captureDiagnostics(state, deadline) {
   )
   return issues
 
-  async function capture(label, file, args, maximumMs, captureLimitBytes) {
+  async function capture(
+    label: string,
+    file: string,
+    args: readonly string[],
+    maximumMs: number,
+    captureLimitBytes: number,
+  ): Promise<void> {
     if (deadline.expired()) {
       issues.push(`${label} skipped because the cleanup deadline elapsed`)
       return
@@ -34,7 +45,7 @@ export async function captureDiagnostics(state, deadline) {
     } catch (error) {
       const normalized = asSetupKafkaError(error, 'diagnostic_capture_failed')
       issues.push(`${label} capture failed: ${redactText(normalized.message, state.secrets)}`)
-      writeSanitized(file, `${issues.at(-1)}\n`, state)
+      writeSanitized(file, `${issues.at(-1) ?? 'diagnostic capture failed'}\n`, state)
     }
   }
 }

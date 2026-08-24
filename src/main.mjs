@@ -9,7 +9,7 @@ import {
   saveState,
   setOutput,
   startGroup,
-} from '../lib/github.mjs'
+} from '../lib/github.ts'
 import { asSetupKafkaError } from '../lib/errors.ts'
 
 try {

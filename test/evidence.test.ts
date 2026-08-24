@@ -4,7 +4,12 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 
-import { finalizeEvidence, prepareEvidence, writeSanitized } from '../lib/evidence.mjs'
+import {
+  finalizeEvidence,
+  prepareEvidence,
+  writeSanitized,
+  type EvidenceState,
+} from '../lib/evidence.ts'
 
 const secret = 'this-must-never-enter-evidence'
 
@@ -23,7 +28,7 @@ test('evidence is redacted, checksummed, and archived without secrets', () => {
   fs.rmSync(root, { recursive: true, force: true })
 })
 
-function fixture(evidenceDirectory) {
+function fixture(evidenceDirectory: string): EvidenceState {
   return {
     actionVersion: '0.1.0',
     createdAt: new Date(0).toISOString(),
