@@ -14,7 +14,7 @@ import {
   startEnvironment,
 } from '../lib/lifecycle.mjs'
 import { securityNames } from '../lib/security.ts'
-import { readState } from '../lib/state.mjs'
+import { readState } from '../lib/state.ts'
 import { parseTopics } from '../lib/topics.ts'
 
 const [command = 'help', ...rest] = process.argv.slice(2)

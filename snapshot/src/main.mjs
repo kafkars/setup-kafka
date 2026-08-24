@@ -1,11 +1,11 @@
 import path from 'node:path'
 
-import { Deadline } from '../../lib/deadline.mjs'
+import { Deadline } from '../../lib/deadline.ts'
 import { finalizeEvidence } from '../../lib/evidence.mjs'
 import { asSetupKafkaError, SetupKafkaError } from '../../lib/errors.ts'
 import { annotation, getInput, mask, setOutput } from '../../lib/github.mjs'
 import { captureDiagnostics } from '../../lib/diagnostics.mjs'
-import { readState } from '../../lib/state.mjs'
+import { readState } from '../../lib/state.ts'
 
 try {
   const stateFile = getInput('state-file').trim()

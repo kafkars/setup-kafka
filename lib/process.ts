@@ -1,9 +1,38 @@
 import { spawn } from 'node:child_process'
 
-import { appendJsonLine } from './fs-utils.mjs'
+import { appendJsonLine } from './fs-utils.ts'
 import { SetupKafkaError } from './errors.ts'
 
 const defaultCaptureLimit = 1024 * 1024
+
+export interface RunCommandOptions {
+  command: string
+  args?: readonly string[]
+  cwd?: string
+  env?: NodeJS.ProcessEnv
+  timeoutMs: number
+  stdin?: string | Uint8Array
+  captureLimitBytes?: number
+  operationLog?: string
+  operation?: string
+  secrets?: readonly string[]
+}
+
+export interface CommandResult {
+  code: number | null
+  signal: NodeJS.Signals | null
+  stdout: string
+  stderr: string
+  stdoutTruncated: boolean
+  stderrTruncated: boolean
+  timedOut: boolean
+  durationMs: number
+}
+
+interface ExitStatus {
+  code: number | null
+  signal: NodeJS.Signals | null
+}
 
 export async function runCommand({
   command,
@@ -16,13 +45,13 @@ export async function runCommand({
   operationLog,
   operation = command,
   secrets = [],
-}) {
+}: RunCommandOptions): Promise<CommandResult> {
   const startedAt = new Date()
   const startedNs = process.hrtime.bigint()
   const stdout = new BoundedCapture(captureLimitBytes)
   const stderr = new BoundedCapture(captureLimitBytes)
   let timedOut = false
-  let result
+  let result: ExitStatus
   try {
     result = await execute()
   } catch (error) {
@@ -35,12 +64,13 @@ export async function runCommand({
       completedAt: completedAt.toISOString(),
       durationMs: elapsedMs(startedNs),
       status: 'spawn-failed',
-      diagnostic: redactText(error.message, secrets),
+      diagnostic: redactText(error instanceof Error ? error.message : String(error), secrets),
     })
     if (error instanceof SetupKafkaError) {
       throw error
     }
-    throw new SetupKafkaError('process_start_failed', `failed to start ${command}: ${error.message}`, { cause: error })
+    const message = error instanceof Error ? error.message : String(error)
+    throw new SetupKafkaError('process_start_failed', `failed to start ${command}: ${message}`, { cause: error })
   }
   const completedAt = new Date()
   const output = {
@@ -67,17 +97,17 @@ export async function runCommand({
   })
   return output
 
-  function execute() {
-    return new Promise((resolve, reject) => {
+  function execute(): Promise<ExitStatus> {
+    return new Promise<ExitStatus>((resolve, reject) => {
       let settled = false
-      let forceTimer
-      const child = spawn(command, args, {
+      let forceTimer: NodeJS.Timeout | undefined
+      const child = spawn(command, [...args], {
         cwd,
         env,
         stdio: ['pipe', 'pipe', 'pipe'],
       })
-      child.stdout.on('data', (chunk) => stdout.push(chunk))
-      child.stderr.on('data', (chunk) => stderr.push(chunk))
+      child.stdout.on('data', (chunk: Buffer) => stdout.push(chunk))
+      child.stderr.on('data', (chunk: Buffer) => stderr.push(chunk))
       child.once('error', (error) => settleReject(error))
       child.once('close', (code, signal) => settleResolve({ code, signal }))
       const timeout = setTimeout(() => {
@@ -93,7 +123,7 @@ export async function runCommand({
         child.stdin.end(stdin)
       }
 
-      function settleResolve(value) {
+      function settleResolve(value: ExitStatus): void {
         if (settled) return
         settled = true
         clearTimeout(timeout)
@@ -101,7 +131,7 @@ export async function runCommand({
         resolve(value)
       }
 
-      function settleReject(error) {
+      function settleReject(error: unknown): void {
         if (settled) return
         settled = true
         clearTimeout(timeout)
@@ -111,14 +141,19 @@ export async function runCommand({
     })
   }
 
-  function record(value) {
+  function record(value: unknown): void {
     if (operationLog) {
       appendJsonLine(operationLog, value)
     }
   }
 }
 
-export function requireSuccess(result, code, label, secrets = []) {
+export function requireSuccess(
+  result: CommandResult,
+  code: string,
+  label: string,
+  secrets: readonly string[] = [],
+): CommandResult {
   if (result.code === 0 && !result.timedOut) {
     return result
   }
@@ -128,7 +163,7 @@ export function requireSuccess(result, code, label, secrets = []) {
   throw new SetupKafkaError(code, `${label} ${reason}: ${diagnostic}`)
 }
 
-export function redactText(value, secrets) {
+export function redactText(value: unknown, secrets: readonly string[]): string {
   let redacted = String(value ?? '')
   for (const secret of secrets.filter(Boolean)) {
     redacted = redacted.split(secret).join('<redacted>')
@@ -136,22 +171,26 @@ export function redactText(value, secrets) {
   return redacted
 }
 
-function redactArgs(args, secrets) {
+function redactArgs(args: readonly string[], secrets: readonly string[]): string[] {
   return args.map((argument) => redactText(argument, secrets))
 }
 
-function elapsedMs(startedNs) {
+function elapsedMs(startedNs: bigint): number {
   return Number((process.hrtime.bigint() - startedNs) / 1_000_000n)
 }
 
 class BoundedCapture {
-  constructor(limit) {
+  readonly limit: number
+  buffer: Buffer
+  truncated: boolean
+
+  constructor(limit: number) {
     this.limit = limit
     this.buffer = Buffer.alloc(0)
     this.truncated = false
   }
 
-  push(chunk) {
+  push(chunk: string | Uint8Array): void {
     const next = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
     if (next.length >= this.limit) {
       this.buffer = next.subarray(next.length - this.limit)
@@ -167,7 +206,7 @@ class BoundedCapture {
     this.truncated = true
   }
 
-  text() {
+  text(): string {
     const marker = this.truncated ? '[output truncated; final bytes follow]\n' : ''
     return marker + this.buffer.toString('utf8')
   }

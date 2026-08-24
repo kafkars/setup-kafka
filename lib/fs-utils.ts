@@ -4,7 +4,7 @@ import path from 'node:path'
 
 import { SetupKafkaError } from './errors.ts'
 
-export function ensureDirectory(directory, mode = 0o700) {
+export function ensureDirectory(directory: string, mode = 0o700): void {
   fs.mkdirSync(directory, { recursive: true, mode })
   try {
     fs.chmodSync(directory, mode)
@@ -13,7 +13,7 @@ export function ensureDirectory(directory, mode = 0o700) {
   }
 }
 
-export function writeTextAtomic(file, content, mode = 0o600) {
+export function writeTextAtomic(file: string, content: string, mode = 0o600): void {
   ensureDirectory(path.dirname(file))
   const temporary = `${file}.tmp-${process.pid}-${crypto.randomBytes(4).toString('hex')}`
   fs.writeFileSync(temporary, content, { encoding: 'utf8', mode })
@@ -25,40 +25,44 @@ export function writeTextAtomic(file, content, mode = 0o600) {
   }
 }
 
-export function writeJsonAtomic(file, value, mode = 0o600) {
+export function writeJsonAtomic(file: string, value: unknown, mode = 0o600): void {
   writeTextAtomic(file, `${JSON.stringify(value, null, 2)}\n`, mode)
 }
 
-export function readJson(file, code = 'state_read_failed') {
+export function readJson(file: string, code = 'state_read_failed'): unknown {
   try {
     return JSON.parse(fs.readFileSync(file, 'utf8'))
   } catch (error) {
-    throw new SetupKafkaError(code, `failed to read JSON file ${file}: ${error.message}`, { cause: error })
+    const message = error instanceof Error ? error.message : String(error)
+    throw new SetupKafkaError(code, `failed to read JSON file ${file}: ${message}`, { cause: error })
   }
 }
 
-export function appendJsonLine(file, value, mode = 0o600) {
+export function appendJsonLine(file: string, value: unknown, mode = 0o600): void {
   ensureDirectory(path.dirname(file))
   fs.appendFileSync(file, `${JSON.stringify(value)}\n`, { encoding: 'utf8', mode })
 }
 
-export function sha256File(file) {
+export function sha256File(file: string): string {
   const hash = crypto.createHash('sha256')
   hash.update(fs.readFileSync(file))
   return hash.digest('hex')
 }
 
-export function regularFiles(directory, excluded = new Set()) {
-  const files = []
+export function regularFiles(
+  directory: string,
+  excluded: ReadonlySet<string> = new Set<string>(),
+): string[] {
+  const files: string[] = []
   walk(directory, files, excluded)
   return files.sort()
 }
 
-export function relativeUnix(root, file) {
+export function relativeUnix(root: string, file: string): string {
   return path.relative(root, file).split(path.sep).join('/')
 }
 
-function walk(directory, files, excluded) {
+function walk(directory: string, files: string[], excluded: ReadonlySet<string>): void {
   if (!fs.existsSync(directory)) {
     return
   }

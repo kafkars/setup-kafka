@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { redactText, requireSuccess, runCommand } from '../lib/process.mjs'
+import { redactText, requireSuccess, runCommand } from '../lib/process.ts'
 
 test('command execution captures bounded output and status', async () => {
   const result = await runCommand({
