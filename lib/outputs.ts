@@ -1,4 +1,6 @@
-export function publicOutputs(state) {
+import type { EnvironmentState } from './state.ts'
+
+export function publicOutputs(state: EnvironmentState): Record<string, string> {
   return {
     'bootstrap-servers': state.bootstrapServers,
     'security-protocol': state.security.securityProtocol,

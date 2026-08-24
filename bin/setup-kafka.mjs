@@ -7,12 +7,12 @@ import { supportedVersions, resolveImage } from '../lib/catalog.ts'
 import { controlEnvironment, controlOperations } from '../lib/control.ts'
 import { asSetupKafkaError, SetupKafkaError } from '../lib/errors.ts'
 import { normalizeInputs, requireLinuxRunner, topologyNames } from '../lib/inputs.ts'
-import { publicOutputs } from '../lib/outputs.mjs'
+import { publicOutputs } from '../lib/outputs.ts'
 import {
   createEnvironment,
   finishEnvironment,
   startEnvironment,
-} from '../lib/lifecycle.mjs'
+} from '../lib/lifecycle.ts'
 import { securityNames } from '../lib/security.ts'
 import { readState } from '../lib/state.ts'
 import { parseTopics } from '../lib/topics.ts'

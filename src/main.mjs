@@ -1,6 +1,6 @@
 import { actionInputs } from '../lib/inputs.ts'
-import { publicOutputs } from '../lib/outputs.mjs'
-import { createEnvironment, startEnvironment } from '../lib/lifecycle.mjs'
+import { publicOutputs } from '../lib/outputs.ts'
+import { createEnvironment, startEnvironment } from '../lib/lifecycle.ts'
 import {
   annotation,
   appendSummary,

@@ -16,6 +16,9 @@ import { createSecurity, sensitiveValues } from './security.ts'
 import { stateLocation, updatePhase, writeState, removePrivateState } from './state.ts'
 import { preflight, writeClientFiles } from './setup-support.ts'
 import { allTopics, parseTopics, readinessTopic } from './topics.ts'
+import type { FinalEvidenceResult } from './evidence.ts'
+import type { Inputs, RawInputs } from './inputs.ts'
+import type { EnvironmentState } from './state.ts'
 import {
   createTopics,
   prepareSecurity,
@@ -27,8 +30,22 @@ import {
 
 const actionVersion = '0.1.0'
 
-export async function createEnvironment(rawInputs) {
-  const inputs = rawInputs.clusterSize ? rawInputs : normalizeInputs(rawInputs)
+export interface CreatedEnvironment {
+  state: EnvironmentState
+  reservations: PortReservations
+}
+
+export type FinishPhase = 'cleanup-failed' | 'cleaned' | 'retained'
+
+export interface FinishResult extends FinalEvidenceResult {
+  phase: FinishPhase
+  issues: string[]
+}
+
+export async function createEnvironment(
+  rawInputs: RawInputs | Inputs,
+): Promise<CreatedEnvironment> {
+  const inputs = isNormalizedInputs(rawInputs) ? rawInputs : normalizeInputs(rawInputs)
   const image = resolveImage(inputs.version)
   const security = createSecurity(inputs.security)
   const project = resolveProjectName(inputs.composeProject)
@@ -43,7 +60,7 @@ export async function createEnvironment(rawInputs) {
       path.dirname(inputs.evidenceDirectory),
       `${path.basename(inputs.evidenceDirectory)}-${project}-ready.tar`,
     )
-    const state = {
+    const state: EnvironmentState = {
       schemaVersion: 1,
       actionVersion,
       createdAt: new Date().toISOString(),
@@ -111,7 +128,10 @@ export async function createEnvironment(rawInputs) {
   }
 }
 
-export async function startEnvironment(state, reservations) {
+export async function startEnvironment(
+  state: EnvironmentState,
+  reservations: PortReservations,
+): Promise<EnvironmentState> {
   const deadline = new Deadline(state.startupTimeoutMs, 'startup')
   try {
     updateEvidenceStatus(state, 'preflight')
@@ -210,10 +230,10 @@ export async function startEnvironment(state, reservations) {
   }
 }
 
-export async function finishEnvironment(state) {
+export async function finishEnvironment(state: EnvironmentState): Promise<FinishResult> {
   const deadline = new Deadline(state.cleanupTimeoutMs, 'cleanup')
-  const issues = []
-  let cleanupFailure = null
+  const issues: string[] = []
+  let cleanupFailure: SetupKafkaError | null = null
   if (state.upAttempted) {
     const diagnosticBudget = state.cleanup
       ? Math.max(1_000, Math.min(30_000, Math.floor(state.cleanupTimeoutMs / 3)))
@@ -243,7 +263,7 @@ export async function finishEnvironment(state) {
       ? 'cleaned'
       : 'retained'
   const diagnostic = issues.length > 0 ? issues.map((value) => redactText(value, state.secrets)).join('; ') : null
-  let finalized
+  let finalized: FinalEvidenceResult
   try {
     finalized = finalizeEvidence(state, {
       phase,
@@ -267,4 +287,8 @@ export async function finishEnvironment(state) {
     throw cleanupFailure
   }
   return { phase, issues, ...finalized }
+}
+
+function isNormalizedInputs(inputs: RawInputs | Inputs): inputs is Inputs {
+  return 'clusterSize' in inputs
 }

@@ -5,25 +5,30 @@ import path from 'node:path'
 import test from 'node:test'
 
 import { controlEnvironment } from '../lib/control.ts'
-import { createEnvironment, finishEnvironment, startEnvironment } from '../lib/lifecycle.mjs'
+import { createEnvironment, finishEnvironment, startEnvironment } from '../lib/lifecycle.ts'
 import { normalizeInputs } from '../lib/inputs.ts'
 import { fakeDocker } from './support/fake-docker.mjs'
+import type { TopologyName } from '../lib/inputs.ts'
+import type { SecurityName } from '../lib/security.ts'
 
-for (const lane of [
+const lanes: ReadonlyArray<{ topology: TopologyName; security: SecurityName }> = [
   { topology: 'single-broker', security: 'plaintext' },
   { topology: 'three-broker', security: 'tls' },
   { topology: 'three-broker', security: 'scram-sha-512' },
-]) {
+]
+
+for (const lane of lanes) {
   test(`lifecycle owns ${lane.topology} ${lane.security}`, async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'setup-kafka-lifecycle-'))
     const bin = path.join(root, 'bin')
     fs.mkdirSync(bin)
     const docker = path.join(bin, 'docker')
     fs.writeFileSync(docker, fakeDocker(), { mode: 0o755 })
+    const fakeStateFile = path.join(root, 'fake-docker.json')
     const previousPath = process.env.PATH
     const previousState = process.env.FAKE_DOCKER_STATE
-    process.env.PATH = `${bin}${path.delimiter}${previousPath}`
-    process.env.FAKE_DOCKER_STATE = path.join(root, 'fake-docker.json')
+    process.env.PATH = `${bin}${path.delimiter}${previousPath ?? ''}`
+    process.env.FAKE_DOCKER_STATE = fakeStateFile
     try {
       const inputs = normalizeInputs({
         version: '4.3.1',
@@ -60,8 +65,8 @@ for (const lane of [
       assert.equal(finished.phase, 'cleaned')
       assert.ok(fs.existsSync(created.state.finalEvidenceArchive))
       assert.equal(fs.existsSync(created.state.privateDirectory), false)
-      const calls = JSON.parse(fs.readFileSync(process.env.FAKE_DOCKER_STATE, 'utf8')).calls
-      assert.ok(calls.some((args) => args.includes('down')))
+      const fakeState = JSON.parse(fs.readFileSync(fakeStateFile, 'utf8')) as { calls: string[][] }
+      assert.ok(fakeState.calls.some((args) => args.includes('down')))
     } finally {
       process.env.PATH = previousPath
       if (previousState === undefined) delete process.env.FAKE_DOCKER_STATE

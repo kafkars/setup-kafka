@@ -1,5 +1,5 @@
 import { readState } from '../lib/state.ts'
-import { finishEnvironment } from '../lib/lifecycle.mjs'
+import { finishEnvironment } from '../lib/lifecycle.ts'
 import { annotation, appendSummary, getState, mask } from '../lib/github.ts'
 import { asSetupKafkaError } from '../lib/errors.ts'
 
