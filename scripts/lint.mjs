@@ -7,7 +7,10 @@ import { repositoryRoot } from '../lib/paths.mjs'
 
 const failures = []
 const sourceRoots = ['lib', 'src', 'bin', 'control/src', 'snapshot/src', 'scripts', 'test']
-const sourceFiles = sourceRoots.flatMap((root) => files(path.join(repositoryRoot, root), '.mjs'))
+const sourceFiles = sourceRoots.flatMap((root) => [
+  ...files(path.join(repositoryRoot, root), '.mjs'),
+  ...files(path.join(repositoryRoot, root), '.ts'),
+]).sort()
 
 for (const file of sourceFiles) {
   const relative = path.relative(repositoryRoot, file)
@@ -28,7 +31,10 @@ for (const file of sourceFiles) {
 
 const packageJson = JSON.parse(fs.readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8'))
 if (Object.keys(packageJson.dependencies || {}).length > 0) fail('runtime dependencies are not allowed')
-if (Object.keys(packageJson.devDependencies || {}).length > 0) fail('development dependencies are not allowed')
+const expectedDevDependencies = { '@types/node': '24.13.3', typescript: '7.0.2' }
+if (JSON.stringify(packageJson.devDependencies) !== JSON.stringify(expectedDevDependencies)) {
+  fail('development dependencies must be the pinned TypeScript toolchain')
+}
 if (packageJson.engines?.node !== '>=24') fail('package.json must require Node >=24')
 
 for (const metadata of ['action.yml', 'control/action.yml', 'snapshot/action.yml']) {
@@ -79,7 +85,7 @@ if (failures.length > 0) {
   for (const failure of failures) process.stderr.write(`lint: ${failure}\n`)
   process.exitCode = 1
 } else {
-  process.stdout.write(`lint: ${sourceFiles.length} JavaScript modules and repository contracts passed\n`)
+  process.stdout.write(`lint: ${sourceFiles.length} source modules and repository contracts passed\n`)
 }
 
 function read(relative) {

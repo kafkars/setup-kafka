@@ -5,7 +5,8 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
 
 node scripts/lint.mjs
-node --test test/*.test.mjs
+node --run typecheck
+node --test test/*.test.*
 node bin/setup-kafka.mjs catalog >/dev/null
 node bin/setup-kafka.mjs plan \
   --version 4.3.1 \

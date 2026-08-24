@@ -9,8 +9,13 @@
   },
   "scripts": {
     "check": "./scripts/check",
-    "test": "node --test test/*.test.mjs",
-    "lint": "node scripts/lint.mjs"
+    "test": "node --test test/*.test.*",
+    "lint": "node scripts/lint.mjs",
+    "typecheck": "tsc --noEmit"
   },
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "@types/node": "24.13.3",
+    "typescript": "7.0.2"
+  }
 }
