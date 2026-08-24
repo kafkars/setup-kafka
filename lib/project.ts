@@ -1,11 +1,14 @@
 import crypto from 'node:crypto'
 
-import { SetupKafkaError } from './errors.mjs'
+import { SetupKafkaError } from './errors.ts'
 
 const pattern = /^[a-z0-9][a-z0-9_-]*$/
 const maximumLength = 63
 
-export function resolveProjectName(requested, environment = process.env) {
+export function resolveProjectName(
+  requested: unknown,
+  environment: NodeJS.ProcessEnv = process.env,
+): string {
   const explicit = String(requested ?? '').trim()
   if (explicit) {
     validate(explicit)
@@ -30,7 +33,7 @@ export function resolveProjectName(requested, environment = process.env) {
   return result
 }
 
-function validate(value) {
+function validate(value: string): void {
   if (value.length > maximumLength || !pattern.test(value)) {
     throw new SetupKafkaError(
       'compose_project_invalid',

@@ -1,5 +1,5 @@
 import { controlEnvironment } from '../../lib/control.mjs'
-import { asSetupKafkaError, SetupKafkaError } from '../../lib/errors.mjs'
+import { asSetupKafkaError, SetupKafkaError } from '../../lib/errors.ts'
 import { annotation, getInput, mask, setOutput } from '../../lib/github.mjs'
 import { readState } from '../../lib/state.mjs'
 

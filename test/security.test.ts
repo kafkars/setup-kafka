@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { clientProperties, composeSecurityFile, createSecurity, securityNames } from '../lib/security.mjs'
+import { clientProperties, composeSecurityFile, createSecurity, securityNames } from '../lib/security.ts'
 
 test('security presets map to Kafka client configuration', () => {
   for (const name of securityNames) {

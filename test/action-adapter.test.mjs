@@ -5,7 +5,7 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import test from 'node:test'
 
-import { repositoryRoot } from '../lib/paths.mjs'
+import { repositoryRoot } from '../lib/paths.ts'
 import { fakeDocker } from './support/fake-docker.mjs'
 
 test('root Action publishes outputs and post owns final evidence and cleanup', () => {

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { resolveProjectName } from '../lib/project.mjs'
+import { resolveProjectName } from '../lib/project.ts'
 
 test('explicit Compose project names are preserved', () => {
   assert.equal(resolveProjectName('setup-kafka-ci_1'), 'setup-kafka-ci_1')

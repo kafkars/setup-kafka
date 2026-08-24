@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { allTopics, parseTopics, readinessTopic } from '../lib/topics.mjs'
+import { allTopics, parseTopics, readinessTopic } from '../lib/topics.ts'
 
 test('topic declarations are sorted and default deterministically', () => {
   assert.deepEqual(parseTopics('zeta\nalpha:4\nbeta:6:2\n', 3), [

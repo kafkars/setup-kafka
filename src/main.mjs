@@ -1,4 +1,4 @@
-import { actionInputs } from '../lib/inputs.mjs'
+import { actionInputs } from '../lib/inputs.ts'
 import { publicOutputs } from '../lib/outputs.mjs'
 import { createEnvironment, startEnvironment } from '../lib/lifecycle.mjs'
 import {
@@ -10,7 +10,7 @@ import {
   setOutput,
   startGroup,
 } from '../lib/github.mjs'
-import { asSetupKafkaError } from '../lib/errors.mjs'
+import { asSetupKafkaError } from '../lib/errors.ts'
 
 try {
   const inputs = actionInputs()

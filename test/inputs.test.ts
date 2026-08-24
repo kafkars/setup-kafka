@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import path from 'node:path'
 import test from 'node:test'
 
-import { normalizeInputs, requireLinuxRunner } from '../lib/inputs.mjs'
+import { normalizeInputs, requireLinuxRunner } from '../lib/inputs.ts'
 
 test('inputs normalize paths, booleans, topology, and timeouts', () => {
   const inputs = normalizeInputs({

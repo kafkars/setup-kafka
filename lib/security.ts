@@ -1,16 +1,45 @@
 import crypto from 'node:crypto'
 
-import { SetupKafkaError } from './errors.mjs'
+import { SetupKafkaError } from './errors.ts'
+import type { TopologyName } from './inputs.ts'
 
-export const securityNames = Object.freeze([
+export const securityNames = [
   'plaintext',
   'tls',
   'sasl-plain',
   'scram-sha-256',
   'scram-sha-512',
-])
+] as const
 
-const presets = Object.freeze({
+export type SecurityName = (typeof securityNames)[number]
+
+interface SecurityPreset {
+  externalProtocol: string
+  securityProtocol: string
+  saslMechanism: string
+  tls: boolean
+  sasl: boolean
+}
+
+export interface SecurityConfig extends SecurityPreset {
+  name: SecurityName
+  username: string
+  password: string
+  keystorePassword: string
+}
+
+export interface RedactedConnection {
+  bootstrapServers: string
+  securityProtocol: string
+  saslMechanism: string | null
+  username: string | null
+  password: '<masked-output>' | null
+  caCertificate: string | null
+  clientCertificate: null
+  clientKey: null
+}
+
+const presets: Readonly<Record<SecurityName, SecurityPreset>> = Object.freeze({
   plaintext: {
     externalProtocol: 'PLAINTEXT',
     securityProtocol: 'PLAINTEXT',
@@ -48,11 +77,11 @@ const presets = Object.freeze({
   },
 })
 
-export function createSecurity(name) {
-  const preset = presets[name]
-  if (!preset) {
+export function createSecurity(name: string): SecurityConfig {
+  if (!isSecurityName(name)) {
     throw new SetupKafkaError('security_unsupported', `unsupported security preset ${JSON.stringify(name)}; expected ${securityNames.join(', ')}`)
   }
+  const preset = presets[name]
   return {
     name,
     ...preset,
@@ -62,7 +91,10 @@ export function createSecurity(name) {
   }
 }
 
-export function composeSecurityFile(security, topology) {
+export function composeSecurityFile(
+  security: SecurityConfig,
+  topology: TopologyName,
+): string | null {
   if (security.tls) {
     return topology === 'single-broker' ? 'tls-single.yml' : 'tls-three.yml'
   }
@@ -72,7 +104,11 @@ export function composeSecurityFile(security, topology) {
   return null
 }
 
-export function clientProperties(security, bootstrapServers, caPath) {
+export function clientProperties(
+  security: SecurityConfig,
+  bootstrapServers: string,
+  caPath: string | null,
+): string {
   const lines = [
     `bootstrap.servers=${bootstrapServers}`,
     `security.protocol=${security.securityProtocol}`,
@@ -96,7 +132,11 @@ export function clientProperties(security, bootstrapServers, caPath) {
   return `${lines.join('\n')}\n`
 }
 
-export function redactedConnection(security, bootstrapServers, caPath) {
+export function redactedConnection(
+  security: SecurityConfig,
+  bootstrapServers: string,
+  caPath: string | null,
+): RedactedConnection {
   return {
     bootstrapServers,
     securityProtocol: security.securityProtocol,
@@ -109,10 +149,14 @@ export function redactedConnection(security, bootstrapServers, caPath) {
   }
 }
 
-export function sensitiveValues(security) {
+export function sensitiveValues(security: SecurityConfig): string[] {
   return [security.password, security.keystorePassword].filter(Boolean)
 }
 
-function randomSecret(bytes) {
+function randomSecret(bytes: number): string {
   return crypto.randomBytes(bytes).toString('base64url')
+}
+
+function isSecurityName(name: string): name is SecurityName {
+  return securityNames.includes(name as SecurityName)
 }

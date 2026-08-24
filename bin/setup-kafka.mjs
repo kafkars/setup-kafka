@@ -3,19 +3,19 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { supportedVersions, resolveImage } from '../lib/catalog.mjs'
+import { supportedVersions, resolveImage } from '../lib/catalog.ts'
 import { controlEnvironment, controlOperations } from '../lib/control.mjs'
-import { asSetupKafkaError, SetupKafkaError } from '../lib/errors.mjs'
-import { normalizeInputs, requireLinuxRunner, topologyNames } from '../lib/inputs.mjs'
+import { asSetupKafkaError, SetupKafkaError } from '../lib/errors.ts'
+import { normalizeInputs, requireLinuxRunner, topologyNames } from '../lib/inputs.ts'
 import { publicOutputs } from '../lib/outputs.mjs'
 import {
   createEnvironment,
   finishEnvironment,
   startEnvironment,
 } from '../lib/lifecycle.mjs'
-import { securityNames } from '../lib/security.mjs'
+import { securityNames } from '../lib/security.ts'
 import { readState } from '../lib/state.mjs'
-import { parseTopics } from '../lib/topics.mjs'
+import { parseTopics } from '../lib/topics.ts'
 
 const [command = 'help', ...rest] = process.argv.slice(2)
 try {

@@ -2,8 +2,8 @@ import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { loadCatalog } from '../lib/catalog.mjs'
-import { repositoryRoot } from '../lib/paths.mjs'
+import { loadCatalog } from '../lib/catalog.ts'
+import { repositoryRoot } from '../lib/paths.ts'
 
 const failures = []
 const sourceRoots = ['lib', 'src', 'bin', 'control/src', 'snapshot/src', 'scripts', 'test']

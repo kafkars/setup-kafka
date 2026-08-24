@@ -6,7 +6,7 @@ import test from 'node:test'
 
 import { controlEnvironment } from '../lib/control.mjs'
 import { createEnvironment, finishEnvironment, startEnvironment } from '../lib/lifecycle.mjs'
-import { normalizeInputs } from '../lib/inputs.mjs'
+import { normalizeInputs } from '../lib/inputs.ts'
 import { fakeDocker } from './support/fake-docker.mjs'
 
 for (const lane of [

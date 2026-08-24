@@ -2,12 +2,44 @@ import os from 'node:os'
 import path from 'node:path'
 
 import { getInput } from './github.mjs'
-import { SetupKafkaError } from './errors.mjs'
-import { securityNames } from './security.mjs'
+import { SetupKafkaError } from './errors.ts'
+import { securityNames, type SecurityName } from './security.ts'
 
-export const topologyNames = Object.freeze(['single-broker', 'three-broker'])
+export const topologyNames = ['single-broker', 'three-broker'] as const
+export type TopologyName = (typeof topologyNames)[number]
 
-export function actionInputs(environment = process.env) {
+export interface RawInputs {
+  version: unknown
+  topology: unknown
+  security: unknown
+  topics: unknown
+  startupTimeoutSeconds: unknown
+  cleanupTimeoutSeconds: unknown
+  evidenceDirectory: unknown
+  composeProject: unknown
+  cleanup: unknown
+  declareEvidence: unknown
+  workspace?: unknown
+  runnerTemp?: unknown
+}
+
+export interface Inputs {
+  version: string
+  topology: TopologyName
+  clusterSize: 1 | 3
+  security: SecurityName
+  topics: string
+  startupTimeoutMs: number
+  cleanupTimeoutMs: number
+  evidenceDirectory: string
+  composeProject: string
+  cleanup: boolean
+  declareEvidence: boolean
+  workspace: string
+  runnerTemp: string
+}
+
+export function actionInputs(environment: NodeJS.ProcessEnv = process.env): Inputs {
   requireLinuxRunner(environment)
   const workspace = environment.GITHUB_WORKSPACE || process.cwd()
   const runnerTemp = environment.RUNNER_TEMP || os.tmpdir()
@@ -27,11 +59,11 @@ export function actionInputs(environment = process.env) {
   })
 }
 
-export function normalizeInputs(raw) {
+export function normalizeInputs(raw: RawInputs): Inputs {
   const topology = enumValue(raw.topology, topologyNames, 'topology')
   const security = enumValue(raw.security, securityNames, 'security')
-  const workspace = path.resolve(raw.workspace || process.cwd())
-  const runnerTemp = path.resolve(raw.runnerTemp || os.tmpdir())
+  const workspace = path.resolve(typeof raw.workspace === 'string' ? raw.workspace : process.cwd())
+  const runnerTemp = path.resolve(typeof raw.runnerTemp === 'string' ? raw.runnerTemp : os.tmpdir())
   return {
     version: required(raw.version, 'version'),
     topology,
@@ -49,7 +81,7 @@ export function normalizeInputs(raw) {
   }
 }
 
-export function requireLinuxRunner(environment = process.env) {
+export function requireLinuxRunner(environment: NodeJS.ProcessEnv = process.env): void {
   const runnerOs = environment.RUNNER_OS
   const linux = runnerOs ? runnerOs === 'Linux' : process.platform === 'linux'
   if (!linux) {
@@ -57,7 +89,7 @@ export function requireLinuxRunner(environment = process.env) {
   }
 }
 
-function required(value, name) {
+function required(value: unknown, name: string): string {
   const normalized = String(value ?? '').trim()
   if (!normalized) {
     throw new SetupKafkaError('input_missing', `${name} is required`)
@@ -65,15 +97,19 @@ function required(value, name) {
   return normalized
 }
 
-function enumValue(value, choices, name) {
+function enumValue<const Name extends string>(
+  value: unknown,
+  choices: readonly Name[],
+  name: string,
+): Name {
   const normalized = String(value ?? '').trim().toLowerCase()
-  if (!choices.includes(normalized)) {
+  if (!choices.includes(normalized as Name)) {
     throw new SetupKafkaError('input_invalid', `${name} must be one of: ${choices.join(', ')}`)
   }
-  return normalized
+  return normalized as Name
 }
 
-function seconds(value, name, minimum, maximum) {
+function seconds(value: unknown, name: string, minimum: number, maximum: number): number {
   const text = String(value ?? '').trim()
   if (!/^\d+$/.test(text)) {
     throw new SetupKafkaError('input_invalid', `${name} must be an integer number of seconds`)
@@ -85,13 +121,13 @@ function seconds(value, name, minimum, maximum) {
   return parsed * 1_000
 }
 
-function boolean(value, name) {
+function boolean(value: unknown, name: string): boolean {
   if (value === true || value === 'true') return true
   if (value === false || value === 'false') return false
   throw new SetupKafkaError('input_invalid', `${name} must be true or false`)
 }
 
-function resolvePath(value, base) {
+function resolvePath(value: unknown, base: string): string {
   const text = String(value).trim()
   if (!text || /[\r\n]/.test(text)) {
     throw new SetupKafkaError('input_invalid', 'evidence-directory must be a non-empty single-line path')

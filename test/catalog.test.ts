@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { resolveImage, supportedVersions, verifyImageInspection } from '../lib/catalog.mjs'
+import { resolveImage, supportedVersions, verifyImageInspection } from '../lib/catalog.ts'
 
 const expected = ['3.7.2', '3.8.1', '3.9.2', '4.0.2', '4.1.2', '4.2.1', '4.3.1']
 

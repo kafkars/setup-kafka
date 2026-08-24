@@ -1,11 +1,18 @@
-import { SetupKafkaError, invariant } from './errors.mjs'
+import { SetupKafkaError, invariant } from './errors.ts'
 
 export const readinessTopic = 'setup-kafka-readiness'
 
-export function parseTopics(text, clusterSize) {
+export interface TopicSpec {
+  name: string
+  partitions: number
+  replicationFactor: number
+  internal?: boolean
+}
+
+export function parseTopics(text: unknown, clusterSize: number): TopicSpec[] {
   invariant(Number.isInteger(clusterSize) && clusterSize > 0, 'cluster_size_invalid', 'cluster size must be positive')
-  const topics = []
-  const seen = new Set()
+  const topics: TopicSpec[] = []
+  const seen = new Set<string>()
   for (const [index, rawLine] of String(text ?? '').split(/\r?\n/).entries()) {
     const line = rawLine.trim()
     if (!line || line.startsWith('#')) {
@@ -32,20 +39,26 @@ export function parseTopics(text, clusterSize) {
   return topics
 }
 
-export function allTopics(userTopics, clusterSize) {
+export function allTopics(userTopics: readonly TopicSpec[], clusterSize: number): TopicSpec[] {
   return [
     ...userTopics,
     { name: readinessTopic, partitions: 1, replicationFactor: clusterSize, internal: true },
   ].sort((left, right) => left.name.localeCompare(right.name))
 }
 
-function validateTopicName(name, index) {
+function validateTopicName(name: string, index: number): void {
   if (!/^[A-Za-z0-9._-]{1,249}$/.test(name) || name === '.' || name === '..') {
     throw topicError(index, `invalid Kafka topic name ${JSON.stringify(name)}`)
   }
 }
 
-function parsePositive(value, fallback, maximum, label, index) {
+function parsePositive(
+  value: string | undefined,
+  fallback: number,
+  maximum: number,
+  label: string,
+  index: number,
+): number {
   if (value === undefined || value.trim() === '') {
     return fallback
   }
@@ -59,6 +72,6 @@ function parsePositive(value, fallback, maximum, label, index) {
   return parsed
 }
 
-function topicError(index, message) {
+function topicError(index: number, message: string): SetupKafkaError {
   return new SetupKafkaError('topics_invalid', `topics line ${index + 1}: ${message}`)
 }

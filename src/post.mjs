@@ -1,7 +1,7 @@
 import { readState } from '../lib/state.mjs'
 import { finishEnvironment } from '../lib/lifecycle.mjs'
 import { annotation, appendSummary, getState, mask } from '../lib/github.mjs'
-import { asSetupKafkaError } from '../lib/errors.mjs'
+import { asSetupKafkaError } from '../lib/errors.ts'
 
 const stateFile = getState('SETUP_KAFKA_STATE')
 if (stateFile) {
