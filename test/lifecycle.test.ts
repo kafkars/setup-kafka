@@ -7,7 +7,7 @@ import test from 'node:test'
 import { controlEnvironment } from '../lib/control.ts'
 import { createEnvironment, finishEnvironment, startEnvironment } from '../lib/lifecycle.ts'
 import { normalizeInputs } from '../lib/inputs.ts'
-import { fakeDocker } from './support/fake-docker.mjs'
+import { fakeDocker } from './support/fake-docker.ts'
 import type { TopologyName } from '../lib/inputs.ts'
 import type { SecurityName } from '../lib/security.ts'
 

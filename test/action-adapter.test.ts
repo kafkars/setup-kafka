@@ -2,11 +2,11 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { spawnSync } from 'node:child_process'
+import { spawnSync, type SpawnSyncReturns } from 'node:child_process'
 import test from 'node:test'
 
 import { repositoryRoot } from '../lib/paths.ts'
-import { fakeDocker } from './support/fake-docker.mjs'
+import { fakeDocker } from './support/fake-docker.ts'
 
 test('root Action publishes outputs and post owns final evidence and cleanup', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'setup-kafka-action-'))
@@ -42,25 +42,30 @@ test('root Action publishes outputs and post owns final evidence and cleanup', (
       INPUT_SECURITY: 'scram-sha-512',
       INPUT_TOPICS: 'orders:2',
     }
-    const main = run('src/main.mjs', environment)
+    const main = run('src/main.ts', environment)
     assert.equal(main.status, 0, `${main.stderr}\n${main.stdout}`)
     assert.match(main.stdout, /::add-mask::/)
     const outputs = parseCommandFile(files.output)
     const saved = parseCommandFile(files.state)
+    const password = requiredValue(outputs, 'password')
+    const stateFile = requiredValue(outputs, 'state-file')
+    const evidenceDirectory = requiredValue(outputs, 'evidence-directory')
+    const evidenceArchive = requiredValue(outputs, 'evidence-archive')
+    const finalEvidenceArchive = requiredValue(outputs, 'final-evidence-archive')
     assert.equal(outputs['security-protocol'], 'SASL_PLAINTEXT')
     assert.equal(outputs['sasl-mechanism'], 'SCRAM-SHA-512')
-    assert.ok(outputs.password.length > 20)
-    assert.equal(saved.SETUP_KAFKA_STATE, outputs['state-file'])
-    assert.ok(fs.existsSync(outputs['evidence-archive']))
-    assert.equal(fs.readFileSync(path.join(outputs['evidence-directory'], 'compose-config.yml'), 'utf8').includes(outputs.password), false)
-    assert.equal(fs.readFileSync(files.summary, 'utf8').includes(outputs.password), false)
+    assert.ok(password.length > 20)
+    assert.equal(requiredValue(saved, 'SETUP_KAFKA_STATE'), stateFile)
+    assert.ok(fs.existsSync(evidenceArchive))
+    assert.equal(fs.readFileSync(path.join(evidenceDirectory, 'compose-config.yml'), 'utf8').includes(password), false)
+    assert.equal(fs.readFileSync(files.summary, 'utf8').includes(password), false)
 
     const controlOutput = path.join(root, 'control-output')
     fs.writeFileSync(controlOutput, '')
-    const control = run('control/src/main.mjs', {
+    const control = run('control/src/main.ts', {
       ...environment,
       GITHUB_OUTPUT: controlOutput,
-      'INPUT_STATE-FILE': outputs['state-file'],
+      'INPUT_STATE-FILE': stateFile,
       INPUT_OPERATION: 'restart',
       INPUT_BROKER: 'broker-2',
     })
@@ -69,35 +74,35 @@ test('root Action publishes outputs and post owns final evidence and cleanup', (
 
     const snapshotOutput = path.join(root, 'snapshot-output')
     fs.writeFileSync(snapshotOutput, '')
-    const snapshot = run('snapshot/src/main.mjs', {
+    const snapshot = run('snapshot/src/main.ts', {
       ...environment,
       GITHUB_OUTPUT: snapshotOutput,
-      'INPUT_STATE-FILE': outputs['state-file'],
+      'INPUT_STATE-FILE': stateFile,
       INPUT_NAME: 'adapter',
       'INPUT_DECLARE-EVIDENCE': 'false',
     })
     assert.equal(snapshot.status, 0, `${snapshot.stderr}\n${snapshot.stdout}`)
     const snapshotOutputs = parseCommandFile(snapshotOutput)
-    assert.ok(fs.existsSync(snapshotOutputs['evidence-archive']))
-    assert.match(snapshotOutputs['evidence-digest'], /^sha256:[0-9a-f]{64}$/)
+    assert.ok(fs.existsSync(requiredValue(snapshotOutputs, 'evidence-archive')))
+    assert.match(requiredValue(snapshotOutputs, 'evidence-digest'), /^sha256:[0-9a-f]{64}$/)
 
-    const post = run('src/post.mjs', {
+    const post = run('src/post.ts', {
       ...environment,
-      STATE_SETUP_KAFKA_STATE: saved.SETUP_KAFKA_STATE,
+      STATE_SETUP_KAFKA_STATE: stateFile,
     })
     assert.equal(post.status, 0, post.stderr)
-    assert.ok(fs.existsSync(outputs['final-evidence-archive']))
-    assert.equal(fs.existsSync(path.dirname(outputs['state-file'])), false)
+    assert.ok(fs.existsSync(finalEvidenceArchive))
+    assert.equal(fs.existsSync(path.dirname(stateFile)), false)
     const artifacts = fs.readFileSync(files.artifacts, 'utf8').trim().split('\n')
-    assert.deepEqual(artifacts, [outputs['evidence-archive'], outputs['final-evidence-archive']])
-    const calls = JSON.parse(fs.readFileSync(files.docker, 'utf8')).calls
-    assert.ok(calls.some((args) => args.includes('down')))
+    assert.deepEqual(artifacts, [evidenceArchive, finalEvidenceArchive])
+    const fakeState = JSON.parse(fs.readFileSync(files.docker, 'utf8')) as { calls: string[][] }
+    assert.ok(fakeState.calls.some((args) => args.includes('down')))
   } finally {
     fs.rmSync(root, { recursive: true, force: true })
   }
 })
 
-function run(relative, environment) {
+function run(relative: string, environment: NodeJS.ProcessEnv): SpawnSyncReturns<string> {
   return spawnSync(process.execPath, [path.join(repositoryRoot, relative)], {
     cwd: repositoryRoot,
     env: environment,
@@ -106,20 +111,27 @@ function run(relative, environment) {
   })
 }
 
-function parseCommandFile(file) {
-  const result = {}
+function parseCommandFile(file: string): Record<string, string> {
+  const result: Record<string, string> = {}
   const lines = fs.readFileSync(file, 'utf8').split('\n')
   for (let index = 0; index < lines.length; index += 1) {
-    const match = lines[index].match(/^([^<]+)<<(.+)$/)
+    const match = lines[index]!.match(/^([^<]+)<<(.+)$/)
     if (!match) continue
-    const [, name, delimiter] = match
-    const values = []
+    const name = match[1]!
+    const delimiter = match[2]!
+    const values: string[] = []
     index += 1
     while (index < lines.length && lines[index] !== delimiter) {
-      values.push(lines[index])
+      values.push(lines[index]!)
       index += 1
     }
     result[name] = values.join('\n')
   }
   return result
+}
+
+function requiredValue(values: Readonly<Record<string, string>>, name: string): string {
+  const value = values[name]
+  assert.ok(value, `missing command value ${name}`)
+  return value
 }

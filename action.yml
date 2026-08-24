@@ -77,8 +77,8 @@ outputs:
 
 runs:
   using: node24
-  main: src/main.mjs
-  post: src/post.mjs
+  main: src/main.ts
+  post: src/post.ts
   post-if: always()
 
 branding:

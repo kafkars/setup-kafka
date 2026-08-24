@@ -43,7 +43,7 @@ for (const metadata of ['action.yml', 'control/action.yml', 'snapshot/action.yml
 }
 const rootAction = read('action.yml')
 for (const fragment of [
-  'post: src/post.mjs',
+  'post: src/post.ts',
   'post-if: always()',
   'version:',
   'bootstrap-servers:',
