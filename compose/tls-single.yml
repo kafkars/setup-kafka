@@ -1,0 +1,36 @@
+services:
+  broker:
+    entrypoint: ["/bin/bash", "-euc"]
+    command:
+      - |
+        password="$${KAFKA_KEYSTORE_PASSWORD}"
+        secrets=/etc/kafka/secrets
+        openssl req -x509 -newkey rsa:2048 -nodes -days 2 \
+          -subj /CN=setup-kafka-ca \
+          -keyout "$$secrets/ca.key" -out "$$secrets/ca.pem"
+        openssl req -newkey rsa:2048 -nodes -subj /CN=localhost \
+          -addext 'subjectAltName=DNS:localhost,DNS:broker,IP:127.0.0.1' \
+          -keyout "$$secrets/broker.key" -out "$$secrets/broker.csr"
+        openssl x509 -req -days 2 -sha256 -in "$$secrets/broker.csr" \
+          -CA "$$secrets/ca.pem" -CAkey "$$secrets/ca.key" -CAcreateserial \
+          -copy_extensions copy -out "$$secrets/broker.pem"
+        openssl pkcs12 -export -name kafka-broker \
+          -in "$$secrets/broker.pem" -inkey "$$secrets/broker.key" \
+          -certfile "$$secrets/ca.pem" -out "$$secrets/kafka.keystore.p12" \
+          -password "pass:$$password"
+        /opt/java/openjdk/bin/keytool -importcert -noprompt \
+          -alias setup-kafka-ca -file "$$secrets/ca.pem" \
+          -keystore "$$secrets/kafka.truststore.p12" \
+          -storetype PKCS12 -storepass "$$password"
+        exec /etc/kafka/docker/run
+    environment:
+      KAFKA_KEYSTORE_PASSWORD: ${KAFKA_KEYSTORE_PASSWORD:?set KAFKA_KEYSTORE_PASSWORD}
+      KAFKA_SSL_KEYSTORE_TYPE: PKCS12
+      KAFKA_SSL_KEYSTORE_LOCATION: /etc/kafka/secrets/kafka.keystore.p12
+      KAFKA_SSL_KEYSTORE_PASSWORD: ${KAFKA_KEYSTORE_PASSWORD}
+      KAFKA_SSL_KEY_PASSWORD: ${KAFKA_KEYSTORE_PASSWORD}
+      KAFKA_SSL_TRUSTSTORE_TYPE: PKCS12
+      KAFKA_SSL_TRUSTSTORE_LOCATION: /etc/kafka/secrets/kafka.truststore.p12
+      KAFKA_SSL_TRUSTSTORE_PASSWORD: ${KAFKA_KEYSTORE_PASSWORD}
+      KAFKA_SSL_CLIENT_AUTH: none
+      KAFKA_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: HTTPS

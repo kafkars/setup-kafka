@@ -1,0 +1,54 @@
+# Derived from the Apache Kafka environments qualified by kafkars/testlab.
+x-broker: &broker
+  image: ${KAFKA_IMAGE:?set KAFKA_IMAGE to an exact digest}
+  labels:
+    dev.kafkars.setup-kafka.project: ${KAFKA_PROJECT:?set KAFKA_PROJECT}
+  environment: &broker-environment
+    KAFKA_PROCESS_ROLES: broker,controller
+    KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:${KAFKA_EXTERNAL_PROTOCOL:?set KAFKA_EXTERNAL_PROTOCOL}
+    KAFKA_CONTROLLER_QUORUM_VOTERS: 1@broker-1:29093,2@broker-2:29093,3@broker-3:29093
+    KAFKA_LISTENERS: CONTROLLER://:29093,EXTERNAL://:9092,INTERNAL://:19092
+    KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+    KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+    CLUSTER_ID: 4L6g3nShT-eMCtK--X86sw
+    KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+    KAFKA_MIN_INSYNC_REPLICAS: 2
+    KAFKA_NUM_PARTITIONS: 3
+    KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+    KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+    KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+    KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+  stop_grace_period: 20s
+
+services:
+  broker-1:
+    <<: *broker
+    hostname: broker-1
+    ports:
+      - "127.0.0.1:${KAFKA_HOST_PORT_1:?set broker 1 host port}:9092"
+    environment:
+      <<: *broker-environment
+      KAFKA_NODE_ID: 1
+      KAFKA_ADVERTISED_LISTENERS: EXTERNAL://localhost:${KAFKA_HOST_PORT_1},INTERNAL://broker-1:19092
+
+  broker-2:
+    <<: *broker
+    hostname: broker-2
+    ports:
+      - "127.0.0.1:${KAFKA_HOST_PORT_2:?set broker 2 host port}:9092"
+    environment:
+      <<: *broker-environment
+      KAFKA_NODE_ID: 2
+      KAFKA_ADVERTISED_LISTENERS: EXTERNAL://localhost:${KAFKA_HOST_PORT_2},INTERNAL://broker-2:19092
+
+  broker-3:
+    <<: *broker
+    hostname: broker-3
+    ports:
+      - "127.0.0.1:${KAFKA_HOST_PORT_3:?set broker 3 host port}:9092"
+    environment:
+      <<: *broker-environment
+      KAFKA_NODE_ID: 3
+      KAFKA_ADVERTISED_LISTENERS: EXTERNAL://localhost:${KAFKA_HOST_PORT_3},INTERNAL://broker-3:19092

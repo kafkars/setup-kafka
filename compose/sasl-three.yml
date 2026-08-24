@@ -1,0 +1,15 @@
+x-sasl-environment: &sasl-environment
+  KAFKA_SASL_ENABLED_MECHANISMS: PLAIN,SCRAM-SHA-256,SCRAM-SHA-512
+  KAFKA_LISTENER_NAME_EXTERNAL_SASL_ENABLED_MECHANISMS: PLAIN,SCRAM-SHA-256,SCRAM-SHA-512
+  KAFKA_LISTENER_NAME_EXTERNAL_PLAIN_SASL_JAAS_CONFIG: >-
+    org.apache.kafka.common.security.plain.PlainLoginModule required username="${KAFKA_USERNAME:?set KAFKA_USERNAME}" password="${KAFKA_PASSWORD:?set KAFKA_PASSWORD}" user_${KAFKA_USERNAME}="${KAFKA_PASSWORD}";
+  KAFKA_LISTENER_NAME_EXTERNAL_SCRAM___SHA___256_SASL_JAAS_CONFIG: org.apache.kafka.common.security.scram.ScramLoginModule required;
+  KAFKA_LISTENER_NAME_EXTERNAL_SCRAM___SHA___512_SASL_JAAS_CONFIG: org.apache.kafka.common.security.scram.ScramLoginModule required;
+
+services:
+  broker-1:
+    environment: *sasl-environment
+  broker-2:
+    environment: *sasl-environment
+  broker-3:
+    environment: *sasl-environment
